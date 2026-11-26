@@ -393,7 +393,7 @@ export const AiTutorView: React.FC<Props> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <DetectiveAvatar mood="thinking" equippedGear={equippedGear} size={76} />
+          <DetectiveAvatar mood="thinking" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={76} />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span className="pill pill-purple">

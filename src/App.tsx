@@ -5,6 +5,7 @@ import {
   Calculator,
   ClipboardCheck,
   Compass,
+  Crown,
   Flame,
   Home,
   Settings,
@@ -14,9 +15,21 @@ import {
   VolumeX,
   Wand2,
 } from 'lucide-react';
-import { AdventureChapter, DetectiveCase, EquipmentItem, ExamPaper, ExamRecord, LearnerProfile } from './types';
+import {
+  AdventureChapter,
+  DetectiveCase,
+  EquipmentItem,
+  ExamPaper,
+  ExamRecord,
+  LearnerProfile,
+  PropItemId,
+  SeasonReward,
+  SkinDef,
+  SkinId,
+} from './types';
 import { BUILTIN_CASES } from './data/curriculum';
 import { ACHIEVEMENTS, getLevelFromXp } from './data/rpgData';
+import { DAILY_SEASON_QUESTS, SEASON_TIERS } from './data/seasonData';
 import { createDefaultProfile, loadProfile, recordCaseCompletion, saveProfile } from './utils/storage';
 import { sound } from './utils/sound';
 import { HomeView } from './components/HomeView';
@@ -27,9 +40,10 @@ import { WardrobeView } from './components/WardrobeView';
 import { AiTutorView } from './components/AiTutorView';
 import { ExamView } from './components/ExamView';
 import { AdventureMapView } from './components/AdventureMapView';
+import { SeasonPassView } from './components/SeasonPassView';
 import { ParentDashboard } from './components/ParentDashboard';
 
-type Tab = 'home' | 'map' | 'exams' | 'english' | 'math' | 'fugitive' | 'wardrobe' | 'tutor' | 'parent';
+type Tab = 'home' | 'season' | 'map' | 'exams' | 'english' | 'math' | 'fugitive' | 'wardrobe' | 'tutor' | 'parent';
 
 export function App() {
   const [profile, setProfile] = useState<LearnerProfile>(() => loadProfile());
@@ -56,6 +70,27 @@ export function App() {
     return ACHIEVEMENTS.filter((a) => a.check(profile) && !claimed.has(a.id)).length;
   }, [profile]);
 
+  const claimableSeasonCount = useMemo(() => {
+    const sp = profile.seasonPoints || 0;
+    const cf = new Set(profile.claimedFreeTiers || []);
+    const ce = new Set(profile.claimedEliteTiers || []);
+    let count = 0;
+    SEASON_TIERS.forEach((t) => {
+      if (sp >= t.requiredSp) {
+        if (!cf.has(t.tier)) count += 1;
+        if (profile.seasonEliteUnlocked && !ce.has(t.tier)) count += 1;
+      }
+    });
+    const cq = new Set(profile.claimedDailyQuestIds || []);
+    const dqp = profile.dailyQuestProgress || {
+      casesSolved: 0, englishSolved: 0, mathSolved: 0, cluesAllFound: 0, examsDone: 0, bossHits: 0,
+    };
+    DAILY_SEASON_QUESTS.forEach((q) => {
+      if (!cq.has(q.id) && q.getCurrent(dqp) >= q.target) count += 1;
+    });
+    return count;
+  }, [profile]);
+
   const lvl = getLevelFromXp(profile.xp || 0);
 
   const handleToggleSound = () => {
@@ -70,6 +105,8 @@ export function App() {
       cluesFoundBeforeAnswer: boolean;
       durationSec: number;
       bonusStars: number;
+      doubleStarsActive?: boolean;
+      luckyCloverActive?: boolean;
     }
   ) => {
     const res = recordCaseCompletion(profile, detectiveCase, stats);
@@ -77,6 +114,7 @@ export function App() {
     return {
       earnedStars: res.earnedStars,
       earnedXp: res.earnedXp,
+      earnedSp: res.earnedSp,
       newCombo: res.newCombo,
       unlockedCardId: res.unlockedCardId,
     };
@@ -126,6 +164,143 @@ export function App() {
     });
   };
 
+  const handleUnlockSkin = (skin: SkinDef) => {
+    setProfile((prev) => {
+      if (prev.stars < skin.cost || (prev.unlockedSkinIds || []).includes(skin.id)) return prev;
+      return {
+        ...prev,
+        stars: prev.stars - skin.cost,
+        unlockedSkinIds: [...(prev.unlockedSkinIds || ['skin_classic']), skin.id],
+        equippedSkinId: skin.id,
+      };
+    });
+  };
+
+  const handleEquipSkin = (skinId: SkinId) => {
+    setProfile((prev) => ({ ...prev, equippedSkinId: skinId }));
+  };
+
+  const handleBuyProp = (propId: PropItemId, cost: number) => {
+    setProfile((prev) => {
+      if (prev.stars < cost) return prev;
+      const cur = prev.inventory?.[propId] || 0;
+      return {
+        ...prev,
+        stars: prev.stars - cost,
+        inventory: { ...(prev.inventory || {}), [propId]: cur + 1 },
+      };
+    });
+  };
+
+  const handleConsumeProp = (propId: PropItemId) => {
+    setProfile((prev) => {
+      const cur = prev.inventory?.[propId] || 0;
+      if (cur <= 0) return prev;
+      return {
+        ...prev,
+        inventory: { ...(prev.inventory || {}), [propId]: cur - 1 },
+      };
+    });
+  };
+
+  const handleOpenMysteryBox = (): string => {
+    // 丰厚且绝对不会“谢谢惠顾”的盲盒奖励池！
+    const roll = Math.random();
+    let msg = '';
+    setProfile((prev) => {
+      const curBox = prev.inventory?.item_mystery_box || 0;
+      if (curBox <= 0) return prev;
+      const inv = { ...(prev.inventory || {}), item_mystery_box: curBox - 1 };
+
+      if (roll < 0.25) {
+        const bonus = 55 + Math.floor(Math.random() * 35);
+        msg = `欧皇金星大爆发！获得 ⭐ +${bonus} 侦探星 + 🦴 2 块狗粮！`;
+        return {
+          ...prev,
+          stars: prev.stars + bonus,
+          totalStarsEarned: prev.totalStarsEarned + bonus,
+          treats: (prev.treats || 0) + 2,
+          inventory: inv,
+        };
+      } else if (roll < 0.52) {
+        inv.item_scanner = (inv.item_scanner || 0) + 2;
+        inv.item_fifty = (inv.item_fifty || 0) + 1;
+        msg = '神探工具大礼包！获得 🔦 透视扫描仪 ×2 + ✂️ 50/50剪刀 ×1！';
+        return { ...prev, inventory: inv };
+      } else if (roll < 0.78) {
+        inv.item_double_star = (inv.item_double_star || 0) + 2;
+        inv.item_boss_bomb = (inv.item_boss_bomb || 0) + 1;
+        msg = '战力拉满！获得 🧪 双倍星星药水 ×2 + 💣 Boss 暴击弹 ×1！';
+        return { ...prev, inventory: inv };
+      } else {
+        inv.item_lucky_clover = (inv.item_lucky_clover || 0) + 2;
+        msg = '超级幸运星！获得 ⭐ +45 侦探星 + 🏆 +40 赛季点数 + 🍀 幸运草 ×2！';
+        return {
+          ...prev,
+          stars: prev.stars + 45,
+          totalStarsEarned: prev.totalStarsEarned + 45,
+          seasonPoints: (prev.seasonPoints || 0) + 40,
+          inventory: inv,
+        };
+      }
+    });
+    return msg || '获得神秘幸运大礼包！';
+  };
+
+  const handleUnlockElitePass = () => {
+    setProfile((prev) => ({ ...prev, seasonEliteUnlocked: true }));
+  };
+
+  const handleClaimTierReward = (tier: number, track: 'free' | 'elite', reward: SeasonReward) => {
+    setProfile((prev) => {
+      const cf = prev.claimedFreeTiers || [];
+      const ce = prev.claimedEliteTiers || [];
+      if (track === 'free' && cf.includes(tier)) return prev;
+      if (track === 'elite' && ce.includes(tier)) return prev;
+
+      const next: LearnerProfile = {
+        ...prev,
+        claimedFreeTiers: track === 'free' ? [...cf, tier] : cf,
+        claimedEliteTiers: track === 'elite' ? [...ce, tier] : ce,
+        inventory: { ...(prev.inventory || {}) },
+        unlockedGearIds: [...prev.unlockedGearIds],
+        unlockedSkinIds: [...(prev.unlockedSkinIds || ['skin_classic'])],
+      };
+
+      if (reward.kind === 'stars') {
+        const amt = reward.amount || 30;
+        next.stars += amt;
+        next.totalStarsEarned += amt;
+      } else if (reward.kind === 'treats') {
+        next.treats = (next.treats || 0) + (reward.amount || 2);
+      } else if (reward.kind === 'prop' && reward.itemId) {
+        const pid = reward.itemId as PropItemId;
+        next.inventory[pid] = (next.inventory[pid] || 0) + (reward.amount || 1);
+      } else if (reward.kind === 'skin' && reward.itemId) {
+        const sid = reward.itemId as SkinId;
+        if (!next.unlockedSkinIds.includes(sid)) next.unlockedSkinIds.push(sid);
+        next.equippedSkinId = sid;
+      } else if (reward.kind === 'gear' && reward.itemId) {
+        if (!next.unlockedGearIds.includes(reward.itemId)) next.unlockedGearIds.push(reward.itemId);
+      }
+      return next;
+    });
+  };
+
+  const handleClaimDailyQuest = (questId: string, rewardSp: number, rewardStars: number) => {
+    setProfile((prev) => {
+      const cq = prev.claimedDailyQuestIds || [];
+      if (cq.includes(questId)) return prev;
+      return {
+        ...prev,
+        seasonPoints: (prev.seasonPoints || 0) + rewardSp,
+        stars: prev.stars + rewardStars,
+        totalStarsEarned: prev.totalStarsEarned + rewardStars,
+        claimedDailyQuestIds: [...cq, questId],
+      };
+    });
+  };
+
   const handleFeedPet = () => {
     setProfile((prev) => {
       if ((prev.treats || 0) <= 0) return prev;
@@ -158,12 +333,17 @@ export function App() {
       const collectedCardIds = (prev.collectedCardIds || []).includes(chap.unlockCardId)
         ? prev.collectedCardIds
         : [...(prev.collectedCardIds || []), chap.unlockCardId];
+      const dqp = prev.dailyQuestProgress || {
+        casesSolved: 0, englishSolved: 0, mathSolved: 0, cluesAllFound: 0, examsDone: 0, bossHits: 0,
+      };
       return {
         ...prev,
         stars: prev.stars + chap.chestStars,
         totalStarsEarned: prev.totalStarsEarned + chap.chestStars,
         treats: (prev.treats || 0) + chap.chestTreats,
         xp: (prev.xp || 0) + 100,
+        seasonPoints: (prev.seasonPoints || 0) + 100,
+        dailyQuestProgress: { ...dqp, bossHits: dqp.bossHits + 1 },
         defeatedBossIds,
         collectedCardIds,
       };
@@ -209,12 +389,18 @@ export function App() {
         }
       });
 
+      const dqp = prev.dailyQuestProgress || {
+        casesSolved: 0, englishSolved: 0, mathSolved: 0, cluesAllFound: 0, examsDone: 0, bossHits: 0,
+      };
+
       return {
         ...prev,
         stars: prev.stars + earnedStars,
         totalStarsEarned: prev.totalStarsEarned + earnedStars,
         treats: (prev.treats || 0) + earnedTreats,
         xp: (prev.xp || 0) + 80,
+        seasonPoints: (prev.seasonPoints || 0) + 80,
+        dailyQuestProgress: { ...dqp, examsDone: dqp.examsDone + 1 },
         fugitives: nextFugitives,
         examHistory: [record, ...(prev.examHistory || [])].slice(0, 60),
       };
@@ -255,6 +441,20 @@ export function App() {
             className="icon-btn"
             onClick={() => {
               setActiveCase(null);
+              setActiveTab('fugitive');
+            }}
+            title="在逃错题抓捕档案"
+            style={{ position: 'relative' }}
+          >
+            <Target size={18} />
+            {atLargeCount > 0 && (
+              <span className="badge-dot" style={{ top: -5, right: -5 }}>{atLargeCount}</span>
+            )}
+          </button>
+          <button
+            className="icon-btn"
+            onClick={() => {
+              setActiveCase(null);
               setActiveTab('tutor');
             }}
             title="问阿探（AI 苏格拉底讲题）"
@@ -289,6 +489,9 @@ export function App() {
             detectiveCase={activeCase}
             nickname={profile.nickname}
             equippedGear={profile.equippedGear}
+            skinId={profile.equippedSkinId}
+            inventory={profile.inventory || {}}
+            onConsumeProp={handleConsumeProp}
             onBack={() => setActiveCase(null)}
             onComplete={(stats) => handleCaseComplete(activeCase, stats)}
             onNextCase={handleNextCase}
@@ -300,6 +503,13 @@ export function App() {
             onStartCase={(c) => setActiveCase(c)}
             onNavigate={(t) => setActiveTab(t)}
           />
+        ) : activeTab === 'season' ? (
+          <SeasonPassView
+            profile={profile}
+            onUnlockElitePass={handleUnlockElitePass}
+            onClaimTierReward={handleClaimTierReward}
+            onClaimDailyQuest={handleClaimDailyQuest}
+          />
         ) : activeTab === 'map' ? (
           <AdventureMapView
             profile={profile}
@@ -307,6 +517,7 @@ export function App() {
             equippedGear={profile.equippedGear}
             onStartCase={(c) => setActiveCase(c)}
             onDefeatBoss={handleDefeatBoss}
+            onConsumeProp={handleConsumeProp}
           />
         ) : activeTab === 'exams' ? (
           <ExamView
@@ -341,6 +552,10 @@ export function App() {
             profile={profile}
             onUnlockGear={handleUnlockGear}
             onEquipGear={handleEquipGear}
+            onUnlockSkin={handleUnlockSkin}
+            onEquipSkin={handleEquipSkin}
+            onBuyProp={handleBuyProp}
+            onOpenMysteryBox={handleOpenMysteryBox}
             onFeedPet={handleFeedPet}
             onClaimAchievement={handleClaimAchievement}
           />
@@ -368,6 +583,11 @@ export function App() {
             <Home size={19} />
             <span>事务所</span>
           </button>
+          <button className={`nav-item ${activeTab === 'season' ? 'active' : ''}`} onClick={() => setActiveTab('season')}>
+            <Crown size={19} />
+            <span>通行证</span>
+            {claimableSeasonCount > 0 && <span className="badge-dot">{claimableSeasonCount}</span>}
+          </button>
           <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
             <Compass size={19} />
             <span>冒险图</span>
@@ -384,15 +604,14 @@ export function App() {
             <Calculator size={19} />
             <span>数学馆</span>
           </button>
-          <button className={`nav-item ${activeTab === 'fugitive' ? 'active' : ''}`} onClick={() => setActiveTab('fugitive')}>
-            <Target size={19} />
-            <span>抓错怪</span>
-            {atLargeCount > 0 && <span className="badge-dot">{atLargeCount}</span>}
-          </button>
           <button className={`nav-item ${activeTab === 'wardrobe' ? 'active' : ''}`} onClick={() => setActiveTab('wardrobe')}>
             <Award size={19} />
-            <span>基地</span>
-            {claimableAchCount > 0 && <span className="badge-dot">{claimableAchCount}</span>}
+            <span>商城基地</span>
+            {(claimableAchCount > 0 || (profile.inventory?.item_mystery_box || 0) > 0) && (
+              <span className="badge-dot">
+                {claimableAchCount + (profile.inventory?.item_mystery_box || 0)}
+              </span>
+            )}
           </button>
         </nav>
       )}

@@ -200,15 +200,79 @@ export interface AchievementDef {
   rewardStars: number;
 }
 
+export type SkinId =
+  | 'skin_classic'
+  | 'skin_ice'
+  | 'skin_ninja'
+  | 'skin_astronaut'
+  | 'skin_wizard'
+  | 'skin_dragon'
+  | 'skin_gold_king'
+  | 'skin_mecha';
+
+export type PropItemId =
+  | 'item_scanner'
+  | 'item_fifty'
+  | 'item_double_star'
+  | 'item_boss_bomb'
+  | 'item_lucky_clover'
+  | 'item_mystery_box';
+
+export interface SkinDef {
+  id: SkinId;
+  name: string;
+  rarity: 'R' | 'SR' | 'SSR' | 'MYTHIC';
+  cost: number; // 0 表示通行证限定或默认免费
+  passOnly?: boolean;
+  passTierHint?: string;
+  emoji: string;
+  description: string;
+  accentColor: string;
+}
+
+export interface PropItemDef {
+  id: PropItemId;
+  name: string;
+  emoji: string;
+  cost: number;
+  description: string;
+  usableIn: 'case' | 'boss' | 'bag';
+  accentColor: string;
+}
+
+export interface SeasonReward {
+  kind: 'stars' | 'treats' | 'prop' | 'skin' | 'gear';
+  amount?: number;
+  itemId?: string;
+  label: string;
+  emoji: string;
+}
+
+export interface SeasonTier {
+  tier: number;
+  requiredSp: number;
+  freeReward: SeasonReward;
+  eliteReward: SeasonReward;
+}
+
+export interface DailyQuestProgress {
+  casesSolved: number;
+  englishSolved: number;
+  mathSolved: number;
+  cluesAllFound: number;
+  examsDone: number;
+  bossHits: number;
+}
+
 export interface LearnerProfile {
   nickname: string;
   stars: number;
   totalStarsEarned: number;
   xp: number;
-  treats: number;           // 智慧狗粮（用来喂养阿探提升亲密度）
-  bondPoints: number;       // 阿探亲密度
-  currentCombo: number;     // 当前连击
-  maxCombo: number;         // 历史最高连击
+  treats: number;
+  bondPoints: number;
+  currentCombo: number;
+  maxCombo: number;
   streakDays: number;
   lastActiveDate: string;
   dailyGoal: number;
@@ -218,6 +282,15 @@ export interface LearnerProfile {
   fugitives: FugitiveEntry[];
   unlockedGearIds: string[];
   equippedGear: Partial<Record<EquipmentItem['slot'], string>>;
+  unlockedSkinIds: SkinId[];
+  equippedSkinId: SkinId;
+  inventory: Partial<Record<PropItemId, number>>;
+  seasonPoints: number;
+  seasonEliteUnlocked: boolean;
+  claimedFreeTiers: number[];
+  claimedEliteTiers: number[];
+  dailyQuestProgress: DailyQuestProgress;
+  claimedDailyQuestIds: string[];
   defeatedBossIds: string[];
   collectedCardIds: string[];
   claimedAchievementIds: string[];

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Flame, Heart, PenTool, Play, Search, Shield, Sparkles, Swords, Trophy, Volume2 } from 'lucide-react';
-import { AdventureChapter, DetectiveCase, EquipmentItem, LearnerProfile } from '../types';
+import { AdventureChapter, DetectiveCase, EquipmentItem, LearnerProfile, PropItemId } from '../types';
 import { ADVENTURE_CHAPTERS, KNOWLEDGE_CARDS } from '../data/rpgData';
 import { generateBossQuestions } from '../data/proceduralGenerator';
 import { DetectiveAvatar } from './DetectiveAvatar';
@@ -15,6 +15,7 @@ interface Props {
   equippedGear: Partial<Record<EquipmentItem['slot'], string>>;
   onStartCase: (c: DetectiveCase) => void;
   onDefeatBoss: (chapter: AdventureChapter) => void;
+  onConsumeProp: (propId: PropItemId) => void;
 }
 
 const ATTACK_SKILLS = [
@@ -30,6 +31,7 @@ export const AdventureMapView: React.FC<Props> = ({
   equippedGear,
   onStartCase,
   onDefeatBoss,
+  onConsumeProp,
 }) => {
   const [activeBossChapter, setActiveBossChapter] = useState<AdventureChapter | null>(null);
   const [bossPool, setBossPool] = useState<DetectiveCase[]>([]);
@@ -79,7 +81,7 @@ export const AdventureMapView: React.FC<Props> = ({
             <span className="stamp-closed">🏆 BOSS DEFEATED · 大胜凯旋</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
-            <DetectiveAvatar mood="celebrating" equippedGear={equippedGear} size={132} />
+            <DetectiveAvatar mood="celebrating" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={132} />
           </div>
           <h2 style={{ margin: '8px 0 6px', fontSize: 26, fontWeight: 900, color: '#92400E' }}>
             太燃了，{profile.nickname} 击败了「{activeBossChapter.bossName}」！
@@ -200,18 +202,63 @@ export const AdventureMapView: React.FC<Props> = ({
       }
     };
 
+    const handleThrowBomb = () => {
+      if ((profile.inventory?.item_boss_bomb || 0) <= 0 || !activeBossChapter) return;
+      sound.playUnlock();
+      onConsumeProp('item_boss_bomb');
+      const nextHp = Math.max(0, bossHp - 1);
+      setBossHp(nextHp);
+      setBossShake(true);
+      setTimeout(() => setBossShake(false), 450);
+      if (nextHp <= 0) {
+        sound.playCaseSolved();
+        onDefeatBoss(activeBossChapter);
+        setVictory(true);
+      } else {
+        setBattleLog(`💣 轰隆！！Boss 暴击能量弹正中 ${activeBossChapter.bossName}，直接炸掉 1 格血（剩余 ${nextHp} 血）！`);
+      }
+    };
+
+    const handleBossScanner = () => {
+      if ((profile.inventory?.item_scanner || 0) <= 0) return;
+      sound.playUnlock();
+      onConsumeProp('item_scanner');
+      const clues = currentCase.tokens
+        .map((t, idx) => (t.isClue || t.isBug ? idx : -1))
+        .filter((idx) => idx >= 0);
+      setFoundTokens(clues);
+      setShieldBroken(true);
+      setBattleLog('🔦 透视扫描仪秒破 Boss 护盾！所有隐藏线索已照亮！');
+    };
+
     return (
       <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button className="btn-soft" onClick={() => setActiveBossChapter(null)}>
             <ArrowLeft size={16} /> 暂离战场
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {battleCombo >= 2 && (
               <span className="pill pill-orange">
                 <Flame size={14} /> {battleCombo} 连击！
               </span>
             )}
+            <button
+              className="btn-soft"
+              style={{ padding: '6px 11px', fontSize: 12 }}
+              disabled={(profile.inventory?.item_scanner || 0) <= 0 || shieldBroken}
+              onClick={handleBossScanner}
+            >
+              🔦 破盾扫描 ({profile.inventory?.item_scanner || 0})
+            </button>
+            <button
+              className="btn-primary"
+              style={{ padding: '6px 12px', fontSize: 12 }}
+              disabled={(profile.inventory?.item_boss_bomb || 0) <= 0}
+              onClick={handleThrowBomb}
+            >
+              💣 丢暴击弹 ({profile.inventory?.item_boss_bomb || 0})
+            </button>
             {currentCase.subject === 'math' && (
               <button className="btn-soft" onClick={() => setScratchOpen(true)}>
                 <PenTool size={15} /> 打草稿
@@ -235,7 +282,7 @@ export const AdventureMapView: React.FC<Props> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <DetectiveAvatar mood={battleCombo > 0 ? 'celebrating' : 'curious'} equippedGear={equippedGear} size={86} />
+            <DetectiveAvatar mood={battleCombo > 0 ? 'celebrating' : 'curious'} skinId={profile.equippedSkinId} equippedGear={equippedGear} size={86} />
             <div>
               <div style={{ fontWeight: 900, fontSize: 16 }}>{profile.nickname} & 阿探</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800, color: '#059669', marginTop: 4 }}>
@@ -394,7 +441,7 @@ export const AdventureMapView: React.FC<Props> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <DetectiveAvatar mood="happy" equippedGear={equippedGear} size={86} />
+          <DetectiveAvatar mood="happy" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={86} />
           <div>
             <span className="pill pill-orange">🗺️ 神探冒险 RPG · 深圳智慧岛</span>
             <h2 style={{ margin: '6px 0 4px', fontSize: 22, fontWeight: 900 }}>

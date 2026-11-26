@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Flame, HelpCircle, Lightbulb, PenTool, Search, Sparkles, Volume2, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { DetectiveCase, EquipmentItem } from '../types';
+import { DetectiveCase, EquipmentItem, PropItemId, SkinId } from '../types';
 import { DetectiveAvatar, AvatarMood } from './DetectiveAvatar';
 import { MathVisualizer } from './MathVisualizer';
 import { ConfettiBurst } from './ConfettiBurst';
@@ -13,6 +13,9 @@ interface Props {
   detectiveCase: DetectiveCase;
   nickname: string;
   equippedGear: Partial<Record<EquipmentItem['slot'], string>>;
+  skinId: SkinId;
+  inventory: Partial<Record<PropItemId, number>>;
+  onConsumeProp: (propId: PropItemId) => void;
   onBack: () => void;
   onComplete: (stats: {
     wrongAttempts: number;
@@ -20,7 +23,9 @@ interface Props {
     cluesFoundBeforeAnswer: boolean;
     durationSec: number;
     bonusStars: number;
-  }) => { earnedStars: number; earnedXp?: number; newCombo?: number; unlockedCardId?: string };
+    doubleStarsActive?: boolean;
+    luckyCloverActive?: boolean;
+  }) => { earnedStars: number; earnedXp?: number; earnedSp?: number; newCombo?: number; unlockedCardId?: string };
   onNextCase?: () => void;
 }
 
@@ -28,6 +33,9 @@ export const CasePlayView: React.FC<Props> = ({
   detectiveCase,
   nickname,
   equippedGear,
+  skinId,
+  inventory,
+  onConsumeProp,
   onBack,
   onComplete,
   onNextCase,
@@ -48,9 +56,14 @@ export const CasePlayView: React.FC<Props> = ({
   const [caseFinished, setCaseFinished] = useState(false);
   const [earnedStars, setEarnedStars] = useState(0);
   const [earnedXp, setEarnedXp] = useState(0);
+  const [earnedSp, setEarnedSp] = useState(0);
   const [comboCount, setComboCount] = useState(0);
   const [unlockedCardId, setUnlockedCardId] = useState<string | undefined>(undefined);
   const [scratchOpen, setScratchOpen] = useState(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
+  const [doubleStarsActive, setDoubleStarsActive] = useState(false);
+  const [luckyCloverActive, setLuckyCloverActive] = useState(false);
+  const [propToast, setPropToast] = useState('');
   const [chosenAnswers, setChosenAnswers] = useState<string[]>([]);
 
   const isSpotBug = detectiveCase.mode === 'eng_spot_bug';
@@ -152,6 +165,7 @@ export const CasePlayView: React.FC<Props> = ({
       setStepIdx((i) => i + 1);
       setStepSolved(false);
       setTriedWrongIndices([]);
+      setEliminatedOptions([]);
       setFeedbackMsg('');
       setFeedbackTone('neutral');
       setHintLevel(0);
@@ -166,13 +180,62 @@ export const CasePlayView: React.FC<Props> = ({
         cluesFoundBeforeAnswer: Boolean(cluesFoundBeforeFirstAnswer),
         durationSec,
         bonusStars,
+        doubleStarsActive,
+        luckyCloverActive,
       });
       setEarnedStars(res.earnedStars);
       setEarnedXp(res.earnedXp || 20);
+      setEarnedSp(res.earnedSp || 25);
       setComboCount(res.newCombo || 0);
       setUnlockedCardId(res.unlockedCardId);
       setCaseFinished(true);
     }
+  };
+
+  const handleUseScanner = () => {
+    if ((inventory.item_scanner || 0) <= 0 || allTargetsFound) return;
+    sound.playUnlock();
+    onConsumeProp('item_scanner');
+    setFoundTokenIndices(targetClueIndices);
+    const tips = targetClueIndices
+      .map((i) => detectiveCase.tokens[i].clueTip)
+      .filter(Boolean)
+      .join(' ｜ ');
+    setActiveClueTip(`🔦 透视扫描仪已全开！${tips}`);
+    setPropToast('🔦 透视扫描仪生效：全部隐藏线索已瞬间照亮！');
+    setTimeout(() => setPropToast(''), 2800);
+  };
+
+  const handleUseFifty = () => {
+    if ((inventory.item_fifty || 0) <= 0 || stepSolved || needsBugFindFirst) return;
+    const wrongPool = currentStep.options
+      .map((_, i) => i)
+      .filter((i) => i !== currentStep.correctIndex && !eliminatedOptions.includes(i) && !triedWrongIndices.includes(i));
+    if (wrongPool.length === 0) return;
+    sound.playUnlock();
+    onConsumeProp('item_fifty');
+    const toCut = wrongPool.slice(0, Math.min(2, wrongPool.length - (wrongPool.length > 2 ? 1 : 0)));
+    setEliminatedOptions((prev) => [...prev, ...toCut]);
+    setPropToast(`✂️ 50/50 排除剪刀咔嚓剪掉了 ${toCut.length} 个干扰项！`);
+    setTimeout(() => setPropToast(''), 2800);
+  };
+
+  const handleUseDoubleStar = () => {
+    if ((inventory.item_double_star || 0) <= 0 || doubleStarsActive) return;
+    sound.playUnlock();
+    onConsumeProp('item_double_star');
+    setDoubleStarsActive(true);
+    setPropToast('🧪 双倍星星药水已生效！本案破案星星直接 ×2 翻倍！');
+    setTimeout(() => setPropToast(''), 2800);
+  };
+
+  const handleUseClover = () => {
+    if ((inventory.item_lucky_clover || 0) <= 0 || luckyCloverActive) return;
+    sound.playUnlock();
+    onConsumeProp('item_lucky_clover');
+    setLuckyCloverActive(true);
+    setPropToast('🍀 连击守护四叶草已激活！本关失误一次也不会断连击！');
+    setTimeout(() => setPropToast(''), 2800);
   };
 
   const visualStage = stepSolved
@@ -198,7 +261,7 @@ export const CasePlayView: React.FC<Props> = ({
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
-            <DetectiveAvatar mood="celebrating" equippedGear={equippedGear} size={130} />
+            <DetectiveAvatar mood="celebrating" skinId={skinId} equippedGear={equippedGear} size={130} />
           </div>
 
           <h2 style={{ margin: '8px 0 6px', fontSize: 26, fontWeight: 900, color: '#92400E' }}>
@@ -223,9 +286,10 @@ export const CasePlayView: React.FC<Props> = ({
             }}
           >
             <div style={{ fontWeight: 900, fontSize: 20, color: '#D97706' }}>
-              ⭐ +{earnedStars} 侦探星
+              ⭐ +{earnedStars} 侦探星 {doubleStarsActive ? '(双倍药水×2!)' : ''}
             </div>
             <span className="pill pill-purple">⚡ +{earnedXp} XP</span>
+            <span className="pill pill-blue">🏆 +{earnedSp} 赛季点</span>
             {comboCount >= 2 && (
               <span className="pill pill-orange">
                 <Flame size={13} /> {comboCount} 连击！
@@ -480,6 +544,7 @@ export const CasePlayView: React.FC<Props> = ({
 
             <div className="option-grid">
               {currentStep.options.map((opt, idx) => {
+                const isEliminated = eliminatedOptions.includes(idx);
                 const isCorrectChosen = stepSolved && idx === currentStep.correctIndex;
                 const isWrongTried = triedWrongIndices.includes(idx);
                 const letter = ['A', 'B', 'C', 'D'][idx];
@@ -487,20 +552,89 @@ export const CasePlayView: React.FC<Props> = ({
                   <button
                     key={idx}
                     type="button"
-                    disabled={stepSolved}
+                    disabled={stepSolved || isEliminated}
                     onClick={() => handleSelectOption(idx)}
+                    style={isEliminated ? { opacity: 0.35, textDecoration: 'line-through' } : undefined}
                     className={[
                       'option-btn',
                       isCorrectChosen ? 'correct' : '',
                       isWrongTried ? 'tried-wrong' : '',
                     ].join(' ')}
                   >
-                    <span className="option-letter">{isCorrectChosen ? '✓' : letter}</span>
+                    <span className="option-letter">{isCorrectChosen ? '✓' : isEliminated ? '✂️' : letter}</span>
                     <span>{opt}</span>
                   </button>
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* 神探实战道具腰带 */}
+        {!stepSolved && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              background: '#F8FAFC',
+              border: '1.5px solid #E2E8F0',
+              borderRadius: 14,
+              padding: '8px 12px',
+            }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 900, color: '#475569' }}>🎒 道具腰带：</span>
+            <button
+              type="button"
+              className="btn-soft"
+              style={{ padding: '5px 10px', fontSize: 12 }}
+              disabled={(inventory.item_scanner || 0) <= 0 || allTargetsFound}
+              onClick={handleUseScanner}
+            >
+              🔦 透视扫描 ({inventory.item_scanner || 0})
+            </button>
+            <button
+              type="button"
+              className="btn-soft"
+              style={{ padding: '5px 10px', fontSize: 12 }}
+              disabled={(inventory.item_fifty || 0) <= 0 || needsBugFindFirst}
+              onClick={handleUseFifty}
+            >
+              ✂️ 50/50剪刀 ({inventory.item_fifty || 0})
+            </button>
+            <button
+              type="button"
+              className="btn-soft"
+              style={{
+                padding: '5px 10px',
+                fontSize: 12,
+                background: doubleStarsActive ? '#FEF08A' : undefined,
+              }}
+              disabled={(inventory.item_double_star || 0) <= 0 || doubleStarsActive}
+              onClick={handleUseDoubleStar}
+            >
+              🧪 {doubleStarsActive ? '双倍生效中!' : `双倍星星 (${inventory.item_double_star || 0})`}
+            </button>
+            <button
+              type="button"
+              className="btn-soft"
+              style={{
+                padding: '5px 10px',
+                fontSize: 12,
+                background: luckyCloverActive ? '#D1FAE5' : undefined,
+              }}
+              disabled={(inventory.item_lucky_clover || 0) <= 0 || luckyCloverActive}
+              onClick={handleUseClover}
+            >
+              🍀 {luckyCloverActive ? '护连击中!' : `连击幸运草 (${inventory.item_lucky_clover || 0})`}
+            </button>
+          </div>
+        )}
+
+        {propToast && (
+          <div className="fade-in" style={{ background: '#EDE9FE', border: '2px solid #8B5CF6', borderRadius: 12, padding: '8px 12px', fontSize: 13, fontWeight: 800, color: '#4C1D95' }}>
+            {propToast}
           </div>
         )}
 
@@ -518,7 +652,7 @@ export const CasePlayView: React.FC<Props> = ({
               padding: '14px 16px',
             }}
           >
-            <DetectiveAvatar mood={avatarMood} equippedGear={equippedGear} size={76} />
+            <DetectiveAvatar mood={avatarMood} skinId={skinId} equippedGear={equippedGear} size={76} />
             <div style={{ flex: 1 }}>
               <div
                 style={{

@@ -118,7 +118,7 @@ export const ExamView: React.FC<Props> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <DetectiveAvatar mood="happy" equippedGear={equippedGear} size={86} />
+            <DetectiveAvatar mood="happy" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={86} />
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
                 <span className="pill pill-orange">📝 16 套深圳四年级完整试卷</span>
@@ -243,7 +243,7 @@ export const ExamView: React.FC<Props> = ({
             <span className="stamp-closed">{medal.badge}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
-            <DetectiveAvatar mood="celebrating" equippedGear={equippedGear} size={114} />
+            <DetectiveAvatar mood="celebrating" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={114} />
           </div>
           <h2 style={{ margin: '6px 0 4px', fontSize: 27, fontWeight: 900, color: medal.color }}>
             {profile.nickname} 考了 {record.score} 分！

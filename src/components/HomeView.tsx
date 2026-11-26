@@ -1,18 +1,19 @@
 import React from 'react';
-import { Award, BookOpen, Calculator, ClipboardCheck, Compass, Play, Sparkles, Swords, Target, Wand2 } from 'lucide-react';
+import { Award, BookOpen, Calculator, ClipboardCheck, Compass, Crown, Play, Sparkles, Swords, Target, Wand2 } from 'lucide-react';
 import { DetectiveCase, LearnerProfile } from '../types';
 import { DetectiveAvatar } from './DetectiveAvatar';
 import { getRankForStars } from '../data/rewards';
 import { ADVENTURE_CHAPTERS, KNOWLEDGE_CARDS, getLevelFromXp } from '../data/rpgData';
 import { SKILL_META } from '../data/curriculum';
 import { EXAM_PAPERS } from '../data/exams';
+import { getSeasonTierInfo } from '../data/seasonData';
 import { computeSkillMastery } from '../utils/storage';
 
 interface Props {
   profile: LearnerProfile;
   allCases: DetectiveCase[];
   onStartCase: (c: DetectiveCase) => void;
-  onNavigate: (tab: 'map' | 'english' | 'math' | 'exams' | 'fugitive' | 'wardrobe' | 'tutor') => void;
+  onNavigate: (tab: 'season' | 'map' | 'english' | 'math' | 'exams' | 'fugitive' | 'wardrobe' | 'tutor') => void;
 }
 
 export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNavigate }) => {
@@ -23,6 +24,7 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
   const atLargeCount = profile.fugitives.filter((f) => f.status === 'at_large').length;
   const bossDefeated = (profile.defeatedBossIds || []).length;
   const cardsOwned = (profile.collectedCardIds || []).length;
+  const seasonInfo = getSeasonTierInfo(profile.seasonPoints || 0);
 
   const mastery = computeSkillMastery(
     profile.attempts,
@@ -67,6 +69,7 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
             <DetectiveAvatar
               mood={dailyDone >= profile.dailyGoal ? 'celebrating' : 'happy'}
+              skinId={profile.equippedSkinId}
               equippedGear={profile.equippedGear}
               size={104}
             />
@@ -135,6 +138,44 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
           </button>
         </div>
       </div>
+
+      {/* S1 赛季通行证高亮横幅 */}
+      <button
+        className="card"
+        onClick={() => onNavigate('season')}
+        style={{
+          textAlign: 'left',
+          background: 'linear-gradient(115deg, #1E1B4B, #312E81 55%, #0E7490)',
+          borderColor: '#38BDF8',
+          color: '#FFFFFF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 14,
+          flexWrap: 'wrap',
+          padding: '16px 20px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 220 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 14, background: 'linear-gradient(135deg, #FACC15, #F59E0B)', color: '#78350F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Crown size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 900, fontSize: 17 }}>🏆 S1 赛季通行证 · 智慧星辰季</span>
+              <span className="pill" style={{ background: '#FACC15', color: '#713F12' }}>
+                Lv.{seasonInfo.currentTier} / 20
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: '#BAE6FD', fontWeight: 600, marginTop: 3 }}>
+              完成每日悬赏领限定皮肤【👨‍🚀太空宇航员 / 🐉烈焰龙骑士 / 🤖星际机甲】、神秘盲盒与强力道具！
+            </div>
+          </div>
+        </div>
+        <span className="btn-primary" style={{ padding: '9px 16px', fontSize: 14 }}>
+          进入领大奖 →
+        </span>
+      </button>
 
       {/* 两大王牌深玩入口：RPG 冒险大地图 + 16 套完整模拟试卷 */}
       <div className="portal-grid" style={{ marginBottom: 2 }}>

@@ -30,6 +30,29 @@ export function createDefaultProfile(): LearnerProfile {
     fugitives: [],
     unlockedGearIds: ['gear_magnifier_basic'],
     equippedGear: { tool: 'gear_magnifier_basic' },
+    unlockedSkinIds: ['skin_classic'],
+    equippedSkinId: 'skin_classic',
+    inventory: {
+      item_scanner: 2,
+      item_fifty: 2,
+      item_double_star: 1,
+      item_boss_bomb: 1,
+      item_lucky_clover: 1,
+      item_mystery_box: 1, // 入职先送 1 个盲盒让孩子马上拆！
+    },
+    seasonPoints: 15,
+    seasonEliteUnlocked: false,
+    claimedFreeTiers: [],
+    claimedEliteTiers: [],
+    dailyQuestProgress: {
+      casesSolved: 0,
+      englishSolved: 0,
+      mathSolved: 0,
+      cluesAllFound: 0,
+      examsDone: 0,
+      bossHits: 0,
+    },
+    claimedDailyQuestIds: [],
     defeatedBossIds: [],
     collectedCardIds: [],
     claimedAchievementIds: [],
@@ -50,6 +73,15 @@ export function loadProfile(): LearnerProfile {
       ...base,
       ...parsed,
       equippedGear: { ...base.equippedGear, ...(parsed.equippedGear || {}) },
+      unlockedSkinIds: parsed.unlockedSkinIds?.length ? parsed.unlockedSkinIds : base.unlockedSkinIds,
+      equippedSkinId: parsed.equippedSkinId || base.equippedSkinId,
+      inventory: parsed.inventory ? { ...parsed.inventory } : base.inventory,
+      seasonPoints: parsed.seasonPoints ?? base.seasonPoints,
+      seasonEliteUnlocked: parsed.seasonEliteUnlocked ?? false,
+      claimedFreeTiers: parsed.claimedFreeTiers || [],
+      claimedEliteTiers: parsed.claimedEliteTiers || [],
+      dailyQuestProgress: parsed.dailyQuestProgress || base.dailyQuestProgress,
+      claimedDailyQuestIds: parsed.claimedDailyQuestIds || [],
       defeatedBossIds: parsed.defeatedBossIds || [],
       collectedCardIds: parsed.collectedCardIds || [],
       claimedAchievementIds: parsed.claimedAchievementIds || [],
@@ -69,6 +101,15 @@ export function loadProfile(): LearnerProfile {
       merged.streakDays = diffDays === 1 ? merged.streakDays + 1 : 1;
       merged.lastActiveDate = today;
       merged.todayCompletedIds = [];
+      merged.dailyQuestProgress = {
+        casesSolved: 0,
+        englishSolved: 0,
+        mathSolved: 0,
+        cluesAllFound: 0,
+        examsDone: 0,
+        bossHits: 0,
+      };
+      merged.claimedDailyQuestIds = [];
     }
     return merged;
   } catch {
@@ -93,11 +134,14 @@ export function recordCaseCompletion(
     cluesFoundBeforeAnswer: boolean;
     durationSec: number;
     bonusStars: number;
+    doubleStarsActive?: boolean;
+    luckyCloverActive?: boolean;
   }
 ): {
   updated: LearnerProfile;
   earnedStars: number;
   earnedXp: number;
+  earnedSp: number;
   newCombo: number;
   unlockedCardId?: string;
   diagnosedCause?: ErrorCause;
@@ -115,13 +159,16 @@ export function recordCaseCompletion(
     }
   }
 
-  // 连击系统（一次破案连击+1；答错也不清零到负数，温和重置以便再次起跳）
-  const newCombo = firstTryPerfect ? (profile.currentCombo || 0) + 1 : 0;
+  // 连击系统（使用幸运草时，答错1次也不断连击！）
+  const keepCombo = firstTryPerfect || (Boolean(stats.luckyCloverActive) && stats.wrongAttempts <= 1);
+  const newCombo = keepCombo ? (profile.currentCombo || 0) + 1 : 0;
   const maxCombo = Math.max(profile.maxCombo || 0, newCombo);
   const comboBonus = newCombo >= 3 ? Math.min(10, newCombo * 2) : 0;
 
-  const earnedStars = detectiveCase.rewardStars + stats.bonusStars + (firstTryPerfect ? 5 : 3) + comboBonus;
+  const baseStars = detectiveCase.rewardStars + stats.bonusStars + (firstTryPerfect ? 5 : 3) + comboBonus;
+  const earnedStars = stats.doubleStarsActive ? baseStars * 2 : baseStars;
   const earnedXp = (detectiveCase.difficulty * 15) + (firstTryPerfect ? 15 : 10);
+  const earnedSp = 25 + (firstTryPerfect ? 10 : 5) + (stats.bonusStars >= 5 ? 5 : 0);
   const earnedTreats = firstTryPerfect && newCombo % 2 === 0 ? 1 : 0;
 
   const attempt: AttemptRecord = {
@@ -188,22 +235,34 @@ export function recordCaseCompletion(
     };
   }
 
+  const dqp = profile.dailyQuestProgress || {
+    casesSolved: 0, englishSolved: 0, mathSolved: 0, cluesAllFound: 0, examsDone: 0, bossHits: 0,
+  };
+
   const updated: LearnerProfile = {
     ...profile,
     stars: profile.stars + earnedStars,
     totalStarsEarned: profile.totalStarsEarned + earnedStars,
     xp: (profile.xp || 0) + earnedXp,
+    seasonPoints: (profile.seasonPoints || 0) + earnedSp,
     treats: (profile.treats || 0) + earnedTreats,
     currentCombo: newCombo,
     maxCombo,
     solvedCaseIds,
     todayCompletedIds,
     collectedCardIds,
+    dailyQuestProgress: {
+      ...dqp,
+      casesSolved: dqp.casesSolved + 1,
+      englishSolved: dqp.englishSolved + (detectiveCase.subject === 'english' ? 1 : 0),
+      mathSolved: dqp.mathSolved + (detectiveCase.subject === 'math' ? 1 : 0),
+      cluesAllFound: dqp.cluesAllFound + (stats.bonusStars >= 5 ? 1 : 0),
+    },
     attempts: [attempt, ...profile.attempts].slice(0, 300),
     fugitives,
   };
 
-  return { updated, earnedStars, earnedXp, newCombo, unlockedCardId, diagnosedCause };
+  return { updated, earnedStars, earnedXp, earnedSp, newCombo, unlockedCardId, diagnosedCause };
 }
 
 export interface SkillMasterySummary {
