@@ -19,8 +19,8 @@ export const ADVENTURE_CHAPTERS: AdventureChapter[] = [
     bossTaunt: '嘿嘿！我专门偷走动词后面的 s 小帽子，你抓得到我吗？',
     bossDefeatLine: '哎呀！你的放大镜连 doesn\'t 照妖镜都看穿了，帽子还给你！',
     requiredCasesToUnlockBoss: 2,
-    chestStars: 55,
-    chestTreats: 3,
+    chestStars: 32,
+    chestTreats: 2,
     unlockCardId: 'card-eng-does',
   },
   {
@@ -133,8 +133,8 @@ export const ADVENTURE_CHAPTERS: AdventureChapter[] = [
     bossTaunt: '只要有一丝马虎，我就永远统治粗心星球！放马过来吧小神探！',
     bossDefeatLine: '耀眼的光芒！粗心暗影彻底消散，你就是真正的深圳四年级传奇大侦探！',
     requiredCasesToUnlockBoss: 4,
-    chestStars: 120,
-    chestTreats: 8,
+    chestStars: 75,
+    chestTreats: 5,
     unlockCardId: 'card-ssr-master',
   },
 ];

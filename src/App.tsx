@@ -28,8 +28,15 @@ import {
   SkinId,
 } from './types';
 import { BUILTIN_CASES } from './data/curriculum';
+import { EQUIPMENT_CATALOG } from './data/rewards';
 import { ACHIEVEMENTS, getLevelFromXp } from './data/rpgData';
-import { DAILY_SEASON_QUESTS, SEASON_TIERS } from './data/seasonData';
+import {
+  DAILY_SEASON_QUESTS,
+  MysteryBoxDef,
+  SEASON_TIERS,
+  SKIN_CATALOG,
+  getTotalBoxesInInventory,
+} from './data/seasonData';
 import { createDefaultProfile, loadProfile, recordCaseCompletion, saveProfile } from './utils/storage';
 import { sound } from './utils/sound';
 import { HomeView } from './components/HomeView';
@@ -69,6 +76,8 @@ export function App() {
     const claimed = new Set(profile.claimedAchievementIds || []);
     return ACHIEVEMENTS.filter((a) => a.check(profile) && !claimed.has(a.id)).length;
   }, [profile]);
+
+  const totalBoxes = useMemo(() => getTotalBoxesInInventory(profile.inventory), [profile.inventory]);
 
   const claimableSeasonCount = useMemo(() => {
     const sp = profile.seasonPoints || 0;
@@ -110,13 +119,31 @@ export function App() {
     }
   ) => {
     const res = recordCaseCompletion(profile, detectiveCase, stats);
-    setProfile(res.updated);
+    // 暗黑刷怪随机掉宝：约 35% 概率爆出皮肤碎片或青铜/白银盲盒！
+    let droppedLootText: string | undefined;
+    const roll = Math.random();
+    const nextProf = { ...res.updated, inventory: { ...(res.updated.inventory || {}) } };
+
+    if (detectiveCase.difficulty === 3 && roll < 0.45) {
+      nextProf.inventory.box_silver = (nextProf.inventory.box_silver || 0) + 1;
+      droppedLootText = '首领爆出【🥈 白银装备盲盒 ×1】！快去暗黑宝库拆箱！';
+    } else if (roll < 0.22) {
+      nextProf.inventory.box_bronze = (nextProf.inventory.box_bronze || 0) + 1;
+      droppedLootText = '怪物掉落【🥉 青铜探案盲盒 ×1】！';
+    } else if (roll < 0.48) {
+      const shardGain = detectiveCase.difficulty === 3 ? 2 : 1;
+      nextProf.skinShards = (nextProf.skinShards || 0) + shardGain;
+      droppedLootText = `怪物掉落【🧩 万能皮肤碎片 ×${shardGain}】！`;
+    }
+
+    setProfile(nextProf);
     return {
       earnedStars: res.earnedStars,
       earnedXp: res.earnedXp,
       earnedSp: res.earnedSp,
       newCombo: res.newCombo,
       unlockedCardId: res.unlockedCardId,
+      droppedLootText,
     };
   };
 
@@ -176,6 +203,19 @@ export function App() {
     });
   };
 
+  const handleCraftSkin = (skin: SkinDef) => {
+    setProfile((prev) => {
+      const need = skin.shardCost || 999;
+      if ((prev.skinShards || 0) < need || (prev.unlockedSkinIds || []).includes(skin.id)) return prev;
+      return {
+        ...prev,
+        skinShards: (prev.skinShards || 0) - need,
+        unlockedSkinIds: [...(prev.unlockedSkinIds || ['skin_classic']), skin.id],
+        equippedSkinId: skin.id,
+      };
+    });
+  };
+
   const handleEquipSkin = (skinId: SkinId) => {
     setProfile((prev) => ({ ...prev, equippedSkinId: skinId }));
   };
@@ -203,48 +243,106 @@ export function App() {
     });
   };
 
-  const handleOpenMysteryBox = (): string => {
-    // 丰厚且绝对不会“谢谢惠顾”的盲盒奖励池！
-    const roll = Math.random();
-    let msg = '';
+  const handleOpenMysteryBox = (boxId: MysteryBoxDef['id']): string => {
+    let resultText = '';
     setProfile((prev) => {
-      const curBox = prev.inventory?.item_mystery_box || 0;
-      if (curBox <= 0) return prev;
-      const inv = { ...(prev.inventory || {}), item_mystery_box: curBox - 1 };
-
-      if (roll < 0.25) {
-        const bonus = 55 + Math.floor(Math.random() * 35);
-        msg = `欧皇金星大爆发！获得 ⭐ +${bonus} 侦探星 + 🦴 2 块狗粮！`;
-        return {
-          ...prev,
-          stars: prev.stars + bonus,
-          totalStarsEarned: prev.totalStarsEarned + bonus,
-          treats: (prev.treats || 0) + 2,
-          inventory: inv,
-        };
-      } else if (roll < 0.52) {
-        inv.item_scanner = (inv.item_scanner || 0) + 2;
-        inv.item_fifty = (inv.item_fifty || 0) + 1;
-        msg = '神探工具大礼包！获得 🔦 透视扫描仪 ×2 + ✂️ 50/50剪刀 ×1！';
-        return { ...prev, inventory: inv };
-      } else if (roll < 0.78) {
-        inv.item_double_star = (inv.item_double_star || 0) + 2;
-        inv.item_boss_bomb = (inv.item_boss_bomb || 0) + 1;
-        msg = '战力拉满！获得 🧪 双倍星星药水 ×2 + 💣 Boss 暴击弹 ×1！';
-        return { ...prev, inventory: inv };
+      const inv = { ...(prev.inventory || {}) };
+      // 兼容旧版 item_mystery_box
+      if (boxId === 'box_bronze' && (inv.box_bronze || 0) <= 0 && (inv.item_mystery_box || 0) > 0) {
+        inv.item_mystery_box = (inv.item_mystery_box || 0) - 1;
+      } else if ((inv[boxId] || 0) > 0) {
+        inv[boxId] = (inv[boxId] || 0) - 1;
       } else {
-        inv.item_lucky_clover = (inv.item_lucky_clover || 0) + 2;
-        msg = '超级幸运星！获得 ⭐ +45 侦探星 + 🏆 +40 赛季点数 + 🍀 幸运草 ×2！';
-        return {
-          ...prev,
-          stars: prev.stars + 45,
-          totalStarsEarned: prev.totalStarsEarned + 45,
-          seasonPoints: (prev.seasonPoints || 0) + 40,
-          inventory: inv,
-        };
+        return prev;
       }
+
+      const roll = Math.random();
+      const unownedShopSkins = SKIN_CATALOG.filter(
+        (s) => !s.passOnly && s.cost > 0 && !(prev.unlockedSkinIds || []).includes(s.id)
+      );
+      const unownedGear = EQUIPMENT_CATALOG.filter((g) => !prev.unlockedGearIds.includes(g.id));
+
+      const next: LearnerProfile = {
+        ...prev,
+        inventory: inv,
+        unlockedGearIds: [...prev.unlockedGearIds],
+        unlockedSkinIds: [...(prev.unlockedSkinIds || ['skin_classic'])],
+      };
+
+      if (boxId === 'box_bronze') {
+        const shardGain = 1 + Math.floor(Math.random() * 3); // 1~3
+        next.skinShards = (next.skinShards || 0) + shardGain;
+        if (roll < 0.15 && unownedGear.length > 0) {
+          const g = unownedGear[Math.floor(Math.random() * unownedGear.length)];
+          next.unlockedGearIds.push(g.id);
+          resultText = `🎉 欧皇小爆！直接开出装备【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 皮肤碎片！`;
+        } else if (roll < 0.55) {
+          inv.item_scanner = (inv.item_scanner || 0) + 1;
+          inv.item_fifty = (inv.item_fifty || 0) + 1;
+          resultText = `获得 🔦 破盾扫描×1 + ✂️ 破魔剪刀×1 + 🧩 ${shardGain} 皮肤碎片！`;
+        } else {
+          next.treats = (next.treats || 0) + 2;
+          next.seasonPoints = (next.seasonPoints || 0) + 25;
+          resultText = `获得 🦴 智慧狗粮×2 + 🏆 +25 赛季点 + 🧩 ${shardGain} 皮肤碎片！`;
+        }
+      } else if (boxId === 'box_silver') {
+        const shardGain = 3 + Math.floor(Math.random() * 3); // 3~5
+        next.skinShards = (next.skinShards || 0) + shardGain;
+        if (roll < 0.35 && unownedGear.length > 0) {
+          const g = unownedGear[Math.floor(Math.random() * unownedGear.length)];
+          next.unlockedGearIds.push(g.id);
+          resultText = `⚔️ 银光出货！直接开出传奇装备【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 皮肤碎片！`;
+        } else {
+          inv.item_double_star = (inv.item_double_star || 0) + 1;
+          inv.item_boss_bomb = (inv.item_boss_bomb || 0) + 1;
+          next.seasonPoints = (next.seasonPoints || 0) + 45;
+          resultText = `获得 🧪 双倍药水×1 + 💣 BOSS暴击弹×1 + 🏆 +45 SP + 🧩 ${shardGain} 皮肤碎片！`;
+        }
+      } else if (boxId === 'box_gold') {
+        const shardGain = 6 + Math.floor(Math.random() * 5); // 6~10
+        next.skinShards = (next.skinShards || 0) + shardGain;
+        if (roll < 0.22 && unownedShopSkins.length > 0) {
+          const sk = unownedShopSkins[Math.floor(Math.random() * unownedShopSkins.length)];
+          next.unlockedSkinIds.push(sk.id);
+          next.equippedSkinId = sk.id;
+          resultText = `🌟 暗金冲天光柱！！欧皇直出皮肤【${sk.emoji} ${sk.name}】并已穿戴 + 🧩 ${shardGain} 碎片！`;
+        } else if (roll < 0.55 && unownedGear.length > 0) {
+          const g = unownedGear[Math.floor(Math.random() * unownedGear.length)];
+          next.unlockedGearIds.push(g.id);
+          resultText = `🔥 金光闪耀！开出装备【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 皮肤碎片 + 🦴 3 狗粮！`;
+          next.treats = (next.treats || 0) + 3;
+        } else {
+          next.treats = (next.treats || 0) + 4;
+          next.seasonPoints = (next.seasonPoints || 0) + 80;
+          inv.item_boss_bomb = (inv.item_boss_bomb || 0) + 2;
+          resultText = `黄金补给大爆发！🧩 ${shardGain} 皮肤碎片 + 💣 暴击弹×2 + 🦴 4 狗粮 + 🏆 +80 SP！`;
+        }
+      } else {
+        // 🌌 传说神话盲盒
+        const shardGain = 12 + Math.floor(Math.random() * 7); // 12~18
+        next.skinShards = (next.skinShards || 0) + shardGain;
+        if (roll < 0.42 && unownedShopSkins.length > 0) {
+          const sk = unownedShopSkins[Math.floor(Math.random() * unownedShopSkins.length)];
+          next.unlockedSkinIds.push(sk.id);
+          next.equippedSkinId = sk.id;
+          resultText = `🌌 太古紫光降临！！直出顶级皮肤【${sk.emoji} ${sk.name}】 + 🧩 ${shardGain} 皮肤碎片！`;
+        } else if (unownedGear.length > 0) {
+          const g = unownedGear[Math.floor(Math.random() * unownedGear.length)];
+          next.unlockedGearIds.push(g.id);
+          inv.item_double_star = (inv.item_double_star || 0) + 2;
+          inv.item_boss_bomb = (inv.item_boss_bomb || 0) + 2;
+          resultText = `🌌 太古神装爆出！【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 皮肤碎片 + 双倍药水×2 + 暴击弹×2！`;
+        } else {
+          next.stars += 90;
+          next.totalStarsEarned += 90;
+          next.seasonPoints = (next.seasonPoints || 0) + 120;
+          resultText = `🌌 至尊神话豪礼！⭐ +90 星 + 🏆 +120 SP + 🧩 ${shardGain} 皮肤碎片！`;
+        }
+      }
+
+      return next;
     });
-    return msg || '获得神秘幸运大礼包！';
+    return resultText || '获得庇护所战利品礼包！';
   };
 
   const handleUnlockElitePass = () => {
@@ -268,7 +366,7 @@ export function App() {
       };
 
       if (reward.kind === 'stars') {
-        const amt = reward.amount || 30;
+        const amt = reward.amount || 20;
         next.stars += amt;
         next.totalStarsEarned += amt;
       } else if (reward.kind === 'treats') {
@@ -336,6 +434,10 @@ export function App() {
       const dqp = prev.dailyQuestProgress || {
         casesSolved: 0, englishSolved: 0, mathSolved: 0, cluesAllFound: 0, examsDone: 0, bossHits: 0,
       };
+      const inv = { ...(prev.inventory || {}) };
+      const dropBox: PropItemId = chap.order >= 5 ? 'box_mythic' : chap.order >= 3 ? 'box_gold' : 'box_silver';
+      inv[dropBox] = (inv[dropBox] || 0) + 1;
+
       return {
         ...prev,
         stars: prev.stars + chap.chestStars,
@@ -343,6 +445,7 @@ export function App() {
         treats: (prev.treats || 0) + chap.chestTreats,
         xp: (prev.xp || 0) + 100,
         seasonPoints: (prev.seasonPoints || 0) + 100,
+        inventory: inv,
         dailyQuestProgress: { ...dqp, bossHits: dqp.bossHits + 1 },
         defeatedBossIds,
         collectedCardIds,
@@ -392,14 +495,22 @@ export function App() {
       const dqp = prev.dailyQuestProgress || {
         casesSolved: 0, englishSolved: 0, mathSolved: 0, cluesAllFound: 0, examsDone: 0, bossHits: 0,
       };
+      const inv = { ...(prev.inventory || {}) };
+      // 交卷必掉盲盒（>=85分掉白银箱，否则掉青铜箱！）
+      if (record.score >= 85) {
+        inv.box_silver = (inv.box_silver || 0) + 1;
+      } else {
+        inv.box_bronze = (inv.box_bronze || 0) + 1;
+      }
 
       return {
         ...prev,
-        stars: prev.stars + earnedStars,
-        totalStarsEarned: prev.totalStarsEarned + earnedStars,
+        stars: prev.stars + Math.round(earnedStars * 0.65),
+        totalStarsEarned: prev.totalStarsEarned + Math.round(earnedStars * 0.65),
         treats: (prev.treats || 0) + earnedTreats,
-        xp: (prev.xp || 0) + 80,
-        seasonPoints: (prev.seasonPoints || 0) + 80,
+        xp: (prev.xp || 0) + 75,
+        seasonPoints: (prev.seasonPoints || 0) + 65,
+        inventory: inv,
         dailyQuestProgress: { ...dqp, examsDone: dqp.examsDone + 1 },
         fugitives: nextFugitives,
         examHistory: [record, ...(prev.examHistory || [])].slice(0, 60),
@@ -409,7 +520,7 @@ export function App() {
 
   return (
     <div className="app-shell">
-      {/* 顶部栏 */}
+      {/* 暗黑4 顶部庇护所 HUD */}
       <header className="top-bar">
         <button
           className="brand-pill"
@@ -418,24 +529,24 @@ export function App() {
             setActiveTab('home');
           }}
         >
-          <div className="brand-logo">🕵️</div>
+          <div className="brand-logo">⚔️</div>
           <div>
-            <div className="brand-title">神探星途</div>
-            <div className="brand-sub">深圳四年级智慧探案学院</div>
+            <div className="brand-title">暗黑智慧 IV</div>
+            <div className="brand-sub">深圳四年级庇护所猎魔学院</div>
           </div>
         </button>
 
         <div className="top-stats">
-          <div className="stat-chip" style={{ background: '#EDE9FE', color: '#6D28D9', borderColor: '#C4B5FD' }}>
+          <div className="stat-chip" style={{ borderColor: '#A855F7', color: '#E9D5FF' }}>
             Lv.{lvl.level}
           </div>
-          <div className="stat-chip star" title="当前可用侦探星">
-            <Star size={16} fill="#F59E0B" color="#D97706" />
+          <div className="stat-chip star" title="战利品星币">
+            <Star size={15} fill="#FACC15" color="#D97706" />
             <span>{profile.stars}</span>
           </div>
-          <div className="stat-chip streak" title="连续探案天数 / 连击">
-            <Flame size={16} fill="#FB923C" color="#EA580C" />
-            <span>{profile.currentCombo >= 2 ? `${profile.currentCombo}连击` : `${profile.streakDays}天`}</span>
+          <div className="stat-chip streak" title="连续试炼天数 / 连杀">
+            <Flame size={15} fill="#EF4444" color="#F97316" />
+            <span>{profile.currentCombo >= 2 ? `${profile.currentCombo}连杀` : `${profile.streakDays}天`}</span>
           </div>
           <button
             className="icon-btn"
@@ -443,13 +554,11 @@ export function App() {
               setActiveCase(null);
               setActiveTab('fugitive');
             }}
-            title="在逃错题抓捕档案"
+            title="复仇通缉榜（错题怪）"
             style={{ position: 'relative' }}
           >
-            <Target size={18} />
-            {atLargeCount > 0 && (
-              <span className="badge-dot" style={{ top: -5, right: -5 }}>{atLargeCount}</span>
-            )}
+            <Target size={17} />
+            {atLargeCount > 0 && <span className="badge-dot" style={{ top: -5, right: -5 }}>{atLargeCount}</span>}
           </button>
           <button
             className="icon-btn"
@@ -457,16 +566,16 @@ export function App() {
               setActiveCase(null);
               setActiveTab('tutor');
             }}
-            title="问阿探（AI 苏格拉底讲题）"
+            title="圣光祭坛（问阿探）"
           >
-            <Wand2 size={18} />
+            <Wand2 size={17} />
           </button>
           <button
             className="icon-btn"
             onClick={handleToggleSound}
             title={profile.soundEnabled ? '关闭音效' : '开启音效'}
           >
-            {profile.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            {profile.soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
           </button>
           <button
             className="icon-btn"
@@ -476,12 +585,11 @@ export function App() {
             }}
             title="家长洞察控制台"
           >
-            <Settings size={18} />
+            <Settings size={17} />
           </button>
         </div>
       </header>
 
-      {/* 主内容区域 */}
       <main>
         {activeCase ? (
           <CasePlayView
@@ -553,6 +661,7 @@ export function App() {
             onUnlockGear={handleUnlockGear}
             onEquipGear={handleEquipGear}
             onUnlockSkin={handleUnlockSkin}
+            onCraftSkin={handleCraftSkin}
             onEquipSkin={handleEquipSkin}
             onBuyProp={handleBuyProp}
             onOpenMysteryBox={handleOpenMysteryBox}
@@ -576,12 +685,11 @@ export function App() {
         )}
       </main>
 
-      {/* 底部平板/手机常驻导航 */}
       {!activeCase && activeTab !== 'parent' && (
         <nav className="bottom-nav" aria-label="主导航">
           <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
             <Home size={19} />
-            <span>事务所</span>
+            <span>庇护所</span>
           </button>
           <button className={`nav-item ${activeTab === 'season' ? 'active' : ''}`} onClick={() => setActiveTab('season')}>
             <Crown size={19} />
@@ -590,27 +698,25 @@ export function App() {
           </button>
           <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
             <Compass size={19} />
-            <span>冒险图</span>
+            <span>地牢BOSS</span>
           </button>
           <button className={`nav-item ${activeTab === 'exams' ? 'active' : ''}`} onClick={() => setActiveTab('exams')}>
             <ClipboardCheck size={19} />
-            <span>模拟卷</span>
+            <span>试炼卷</span>
           </button>
           <button className={`nav-item ${activeTab === 'english' ? 'active' : ''}`} onClick={() => setActiveTab('english')}>
             <BookOpen size={19} />
-            <span>英语馆</span>
+            <span>英语窟</span>
           </button>
           <button className={`nav-item ${activeTab === 'math' ? 'active' : ''}`} onClick={() => setActiveTab('math')}>
             <Calculator size={19} />
-            <span>数学馆</span>
+            <span>数学牢</span>
           </button>
           <button className={`nav-item ${activeTab === 'wardrobe' ? 'active' : ''}`} onClick={() => setActiveTab('wardrobe')}>
             <Award size={19} />
-            <span>商城基地</span>
-            {(claimableAchCount > 0 || (profile.inventory?.item_mystery_box || 0) > 0) && (
-              <span className="badge-dot">
-                {claimableAchCount + (profile.inventory?.item_mystery_box || 0)}
-              </span>
+            <span>宝库皮肤</span>
+            {(claimableAchCount > 0 || totalBoxes > 0) && (
+              <span className="badge-dot">{claimableAchCount + totalBoxes}</span>
             )}
           </button>
         </nav>

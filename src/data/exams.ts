@@ -1,6 +1,6 @@
 import { ExamPaper } from '../types';
 
-// 16 套深圳小学四年级完整模拟试卷（每套 12 ~ 20 题，覆盖 4上/4下 期中、期末、专题与全能大联考）
+// 20 套深圳小学四年级完整模拟试卷（每套 12 ~ 20 题，覆盖 4上/4下 期中、期末、专题与高难压轴大联考）
 export const EXAM_PAPERS: ExamPaper[] = [
   // ================= 英语（沪教牛津深圳版 4A/4B）7 套 =================
   {
@@ -255,8 +255,76 @@ export const EXAM_PAPERS: ExamPaper[] = [
       'eng-2', 'eng-6', 'eng-10', 'eng-13', 'eng-17', 'eng-18', 'eng-23', 'eng-38', 'eng-46', 'eng-53',
       'math-2', 'math-6', 'math-8', 'math-9', 'math-16', 'math-18', 'math-19', 'math-21', 'math-40', 'math-48',
     ],
-    rewardStars: 120,
-    rewardTreats: 8,
+    rewardStars: 68,
+    rewardTreats: 5,
     encouragement: '最高荣誉 20 题大满贯试卷！不限时间，用好草稿纸和放大镜，冲刺传奇认证！',
+  },
+
+  // ================= 新增 4 套高阶压轴与专项强化试卷（总计 20 套）=================
+  {
+    id: 'exam-eng-sp-pronoun',
+    title: '英语专题④：代词、祈使句与疑问词全攻略卷',
+    subtitle: '15 题专攻物主代词/宾格/指示代词/Whose/Let\'s/It\'s time for vs to',
+    subject: 'english',
+    category: 'special',
+    gradeTerm: '全学年',
+    badgeEmoji: '🎯',
+    questionCount: 15,
+    targetSkills: ['eng_prep_plural', 'eng_be_have_there'],
+    caseIds: ['eng-55', 'eng-56', 'eng-57', 'eng-58', 'eng-59', 'eng-60', 'eng-61', 'eng-62', 'eng-63', 'eng-64', 'eng-67', 'eng-69', 'eng-70', 'eng-49', 'eng-22'],
+    rewardStars: 38,
+    rewardTreats: 3,
+    encouragement: '吃透这 15 个最容易丢分的小语法点，英语选择题稳拿满分！',
+  },
+  {
+    id: 'exam-eng-sp-master20',
+    title: '英语压轴大卷：深圳四年级易错语法 20 题大通关',
+    subtitle: '20 题高密度全真易错压轴（含选择疑问句 or、A pair of、全真改错！）',
+    subject: 'english',
+    category: 'final',
+    gradeTerm: '全学年',
+    badgeEmoji: '👑',
+    questionCount: 20,
+    targetSkills: ['eng_third_person', 'eng_be_have_there', 'eng_present_prog', 'eng_prep_plural'],
+    caseIds: [
+      'eng-2', 'eng-5', 'eng-6', 'eng-11', 'eng-17', 'eng-23', 'eng-26', 'eng-29', 'eng-36', 'eng-42',
+      'eng-55', 'eng-56', 'eng-61', 'eng-66', 'eng-68', 'eng-69', 'eng-71', 'eng-72', 'eng-73', 'eng-74',
+    ],
+    rewardStars: 55,
+    rewardTreats: 4,
+    encouragement: '20 题全真压轴大关！考过 90 分就能证明你的英语语法已经炉火纯青！',
+  },
+  {
+    id: 'exam-math-sp-hard15',
+    title: '数学专题④：钟表角、除法位数、四边形与倒推思维卷',
+    subtitle: '15 题突破四年级核心拉分题（蜗牛爬井 / 方阵去重 / 敲钟 / 年龄差不变）',
+    subject: 'math',
+    category: 'special',
+    gradeTerm: '全学年',
+    badgeEmoji: '🧠',
+    questionCount: 15,
+    targetSkills: ['math_trap_reading', 'math_word_logic', 'math_calc_laws', 'math_eq_geo_dec'],
+    caseIds: ['math-55', 'math-56', 'math-57', 'math-58', 'math-59', 'math-60', 'math-61', 'math-62', 'math-63', 'math-64', 'math-65', 'math-66', 'math-70', 'math-74', 'math-75'],
+    rewardStars: 42,
+    rewardTreats: 3,
+    encouragement: '每一题都是四年级最经典的思维拉分题！打开草稿纸画个图，难题秒变简单！',
+  },
+  {
+    id: 'exam-math-sp-master20',
+    title: '数学压轴大卷：深圳四年级奥数启蒙 & 逻辑 20 题冲刺卷',
+    subtitle: '20 题全学年硬核大冲刺（和差倍 / 鸡兔同笼 / 租车买票 / 方程 / 巧算）',
+    subject: 'math',
+    category: 'final',
+    gradeTerm: '全学年',
+    badgeEmoji: '🏅',
+    questionCount: 20,
+    targetSkills: ['math_trap_reading', 'math_word_logic', 'math_calc_laws', 'math_eq_geo_dec'],
+    caseIds: [
+      'math-4', 'math-6', 'math-8', 'math-16', 'math-18', 'math-19', 'math-26', 'math-28', 'math-35', 'math-40',
+      'math-41', 'math-54', 'math-56', 'math-57', 'math-60', 'math-62', 'math-64', 'math-65', 'math-66', 'math-75',
+    ],
+    rewardStars: 60,
+    rewardTreats: 5,
+    encouragement: '20 题数学逻辑巅峰冲刺卷！稳住心态一步步画图，每对一题都超了不起！',
   },
 ];

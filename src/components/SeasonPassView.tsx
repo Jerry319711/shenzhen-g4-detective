@@ -29,7 +29,7 @@ export const SeasonPassView: React.FC<Props> = ({
   const info = getSeasonTierInfo(sp);
 
   const canFreeUnlockElite =
-    profile.totalStarsEarned >= ELITE_PASS_UNLOCK_STARS || (profile.defeatedBossIds || []).length >= 1;
+    profile.totalStarsEarned >= ELITE_PASS_UNLOCK_STARS || (profile.defeatedBossIds || []).length >= 3;
   const eliteActive = Boolean(profile.seasonEliteUnlocked);
 
   const claimedFree = new Set(profile.claimedFreeTiers || []);
@@ -116,7 +116,7 @@ export const SeasonPassView: React.FC<Props> = ({
                 <Crown size={17} />
                 {canFreeUnlockElite
                   ? '免费激活【精英神探双轨】！'
-                  : `累计 ${ELITE_PASS_UNLOCK_STARS} ⭐（当前 ${profile.totalStarsEarned}）或击败 1 位 Boss 即可免费解锁精英轨`}
+                  : `累计 ${ELITE_PASS_UNLOCK_STARS} ⭐（当前 ${profile.totalStarsEarned}）或击败 3 位世界 BOSS 免费解锁`}
               </button>
             )}
           </div>
@@ -182,9 +182,9 @@ export const SeasonPassView: React.FC<Props> = ({
               <div
                 key={q.id}
                 style={{
-                  background: claimed ? '#ECFDF5' : done ? '#FFFBEB' : '#F8FAFC',
-                  border: `2px solid ${claimed ? '#34D399' : done ? '#F59E0B' : '#E2E8F0'}`,
-                  borderRadius: 16,
+                  background: claimed ? 'rgba(6,78,59,0.35)' : done ? 'rgba(120,53,15,0.35)' : '#120F18',
+                  border: `1.5px solid ${claimed ? '#34D399' : done ? '#F59E0B' : '#332940'}`,
+                  borderRadius: 14,
                   padding: '12px 14px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -193,9 +193,9 @@ export const SeasonPassView: React.FC<Props> = ({
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800, fontSize: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800, fontSize: 14, color: '#F5EFE4' }}>
                     <span>{q.emoji} {q.title}</span>
-                    <span style={{ color: done ? '#059669' : '#64748B' }}>{cur}/{q.target}</span>
+                    <span style={{ color: done ? '#34D399' : '#B6A995' }}>{cur}/{q.target}</span>
                   </div>
                   <div className="progress-track" style={{ height: 7, marginTop: 6 }}>
                     <div
@@ -208,7 +208,7 @@ export const SeasonPassView: React.FC<Props> = ({
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#92400E' }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#FDE047' }}>
                     +{q.rewardSp} SP · ⭐+{q.rewardStars}
                   </span>
                   {claimed ? (
@@ -252,34 +252,31 @@ export const SeasonPassView: React.FC<Props> = ({
               <div
                 key={t.tier}
                 style={{
-                  borderRadius: 18,
+                  borderRadius: 16,
                   padding: 14,
-                  background: isMilestone ? 'linear-gradient(145deg, #FFFBEB, #EDE9FE)' : '#FFFFFF',
-                  border: `2.5px solid ${reached ? '#F59E0B' : '#E2E8F0'}`,
+                  background: isMilestone ? 'linear-gradient(145deg, #2B1D35, #1E1728)' : '#120F18',
+                  border: `2px solid ${reached ? '#F59E0B' : '#332940'}`,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 10,
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span
-                    className={`pill ${reached ? 'pill-amber' : 'pill-blue'}`}
-                    style={{ fontSize: 13 }}
-                  >
+                  <span className={`pill ${reached ? 'pill-amber' : 'pill-blue'}`} style={{ fontSize: 13 }}>
                     Lv.{t.tier} {isMilestone ? '🌟 大奖层' : ''}
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: reached ? '#059669' : '#64748B' }}>
-                    {reached ? '✓ 已达成' : `需要 ${t.requiredSp} SP`}
+                  <span style={{ fontSize: 12, fontWeight: 800, color: reached ? '#34D399' : '#B6A995' }}>
+                    {reached ? '✓ 已达成' : `需 ${t.requiredSp} SP`}
                   </span>
                 </div>
 
                 {/* 基础轨 */}
                 <div
                   style={{
-                    background: '#F8FAFC',
-                    borderRadius: 12,
+                    background: '#1C1726',
+                    borderRadius: 11,
                     padding: '9px 11px',
-                    border: '1.5px solid #CBD5E1',
+                    border: '1.5px solid #3B304D',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -287,8 +284,8 @@ export const SeasonPassView: React.FC<Props> = ({
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: '#2563EB' }}>🌟 基础轨</div>
-                    <div style={{ fontSize: 14, fontWeight: 900 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#93C5FD' }}>🌟 基础轨</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: '#F5EFE4' }}>
                       {t.freeReward.emoji} {t.freeReward.label}
                     </div>
                   </div>
@@ -307,17 +304,17 @@ export const SeasonPassView: React.FC<Props> = ({
                       领取
                     </button>
                   ) : (
-                    <Lock size={15} color="#94A3B8" />
+                    <Lock size={15} color="#786D5F" />
                   )}
                 </div>
 
                 {/* 精英轨 */}
                 <div
                   style={{
-                    background: 'linear-gradient(90deg, #FEF3C7, #FFEDD5)',
-                    borderRadius: 12,
+                    background: 'linear-gradient(90deg, rgba(120,53,15,0.42), rgba(154,52,18,0.35))',
+                    borderRadius: 11,
                     padding: '9px 11px',
-                    border: '1.5px solid #FBBF24',
+                    border: '1.5px solid #D97706',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -325,10 +322,10 @@ export const SeasonPassView: React.FC<Props> = ({
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: '#B45309', display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <Crown size={11} /> 精英神探轨
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#FACC15', display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <Crown size={11} /> 精英暗金轨
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: '#78350F' }}>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: '#FEF3C7' }}>
                       {t.eliteReward.emoji} {t.eliteReward.label}
                     </div>
                   </div>
@@ -347,7 +344,7 @@ export const SeasonPassView: React.FC<Props> = ({
                       <Sparkles size={12} /> 领取
                     </button>
                   ) : (
-                    <span style={{ fontSize: 11, fontWeight: 800, color: '#B45309', display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#FDBA74', display: 'flex', alignItems: 'center', gap: 3 }}>
                       <Lock size={13} /> {eliteActive ? '待升级' : '未激活'}
                     </span>
                   )}

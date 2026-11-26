@@ -19,17 +19,16 @@ export const FugitiveView: React.FC<Props> = ({ fugitives, allCases, onStartCase
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div
-        className="card"
+        className="card card-warm"
         style={{
-          background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)',
-          borderColor: '#FDBA74',
+          borderColor: '#EA580C',
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#7C2D12' }}>
-          🕵️ 在逃嫌疑人档案室（错题复仇榜）
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#FDBA74' }}>
+          🕵️ 庇护所复仇通缉榜（在逃错题怪）
         </h2>
-        <p style={{ margin: '6px 0 0', fontSize: 14, fontWeight: 600, color: '#9A3412' }}>
-          以前不小心中过招的小陷阱都记在这里！只要重新挑战并且【一次破案】，就能亲手盖上「已归案」红章！
+        <p style={{ margin: '6px 0 0', fontSize: 13.5, fontWeight: 600, color: 'var(--ink-muted)' }}>
+          以前不小心溜走的陷阱怪都挂在通缉榜上！再次挑战【一次斩杀】即可亲手彻底净化并领取复仇星！
         </p>
       </div>
 
@@ -59,8 +58,8 @@ export const FugitiveView: React.FC<Props> = ({ fugitives, allCases, onStartCase
                   key={f.caseId}
                   className="card"
                   style={{
-                    border: '2.5px dashed #FB923C',
-                    background: '#FFFDF7',
+                    border: '2px dashed #FB923C',
+                    background: '#1C141D',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',

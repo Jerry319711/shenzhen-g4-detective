@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Flame, Heart, PenTool, Play, Search, Shield, Sparkles, Swords, Trophy, Volume2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Flame, PenTool, Play, Search, Shield, Sparkles, Swords, Trophy, Volume2 } from 'lucide-react';
 import { AdventureChapter, DetectiveCase, EquipmentItem, LearnerProfile, PropItemId } from '../types';
 import { ADVENTURE_CHAPTERS, KNOWLEDGE_CARDS } from '../data/rpgData';
 import { generateBossQuestions } from '../data/proceduralGenerator';
@@ -19,10 +19,10 @@ interface Props {
 }
 
 const ATTACK_SKILLS = [
-  '⚡ 黄金放大镜激光斩！',
-  '⚖️ 智慧天平冲击波！',
-  '🔍 线索破盾连环击！',
-  '🌟 勇气星辰必杀技！',
+  '⚡ 圣光放大镜旋风斩！',
+  '🔥 逻辑陨石天降打击！',
+  '⚔️ 庇护所裁决连环击！',
+  '🌟 勇气圣剑终极一击！',
 ];
 
 export const AdventureMapView: React.FC<Props> = ({
@@ -36,11 +36,13 @@ export const AdventureMapView: React.FC<Props> = ({
   const [activeBossChapter, setActiveBossChapter] = useState<AdventureChapter | null>(null);
   const [bossPool, setBossPool] = useState<DetectiveCase[]>([]);
   const [qIdx, setQIdx] = useState(0);
-  const [bossHp, setBossHp] = useState(4);
+  const [bossHp, setBossHp] = useState(400);
+  const [bossMaxHp, setBossMaxHp] = useState(400);
   const [shieldBroken, setShieldBroken] = useState(false);
   const [foundTokens, setFoundTokens] = useState<number[]>([]);
   const [battleLog, setBattleLog] = useState('');
   const [bossShake, setBossShake] = useState(false);
+  const [dmgPopup, setDmgPopup] = useState('');
   const [triedWrong, setTriedWrong] = useState<number[]>([]);
   const [battleCombo, setBattleCombo] = useState(0);
   const [victory, setVictory] = useState(false);
@@ -50,68 +52,71 @@ export const AdventureMapView: React.FC<Props> = ({
 
   const startBossBattle = (chap: AdventureChapter) => {
     sound.playUnlock();
-    // 混合该章节精选真题 + 变式题，确保每回合都新鲜刺激
     const matchingCurated = allCases
       .filter((c) => chap.skills.includes(c.skill))
       .sort(() => Math.random() - 0.5)
-      .slice(0, chap.bossHp);
-    const extraProcedural = generateBossQuestions(chap.skills, chap.bossHp);
+      .slice(0, chap.bossHp + 2);
+    const extraProcedural = generateBossQuestions(chap.skills, chap.bossHp + 2);
     const pool = [...matchingCurated, ...extraProcedural];
+    const totalHp = chap.bossHp * 100;
 
     setActiveBossChapter(chap);
     setBossPool(pool);
     setQIdx(0);
-    setBossHp(chap.bossHp);
+    setBossHp(totalHp);
+    setBossMaxHp(totalHp);
     setShieldBroken(false);
     setFoundTokens([]);
-    setBattleLog(`👾 ${chap.bossName} 出现了：“${chap.bossTaunt}”`);
+    setBattleLog(`🔥 世界 BOSS【${chap.bossName}】降临：“${chap.bossTaunt}”`);
     setTriedWrong([]);
     setBattleCombo(0);
     setVictory(false);
   };
 
-  // ================= Boss 战胜利开宝箱界面 =================
+  const triggerBossHit = (dmg: number, crit: boolean) => {
+    setBossShake(true);
+    setDmgPopup(`${crit ? '⚡暴击 ' : ''}-${dmg} HP!`);
+    setTimeout(() => setBossShake(false), 420);
+    setTimeout(() => setDmgPopup(''), 950);
+  };
+
+  // ================= 世界 BOSS 击杀传奇掉宝 =================
   if (activeBossChapter && victory) {
     const unlockedCard = KNOWLEDGE_CARDS.find((c) => c.id === activeBossChapter.unlockCardId);
+    const droppedBoxName = activeBossChapter.order >= 5 ? '🌌 传说神话盲盒 ×1' : activeBossChapter.order >= 3 ? '🥇 黄金皮肤盲盒 ×1' : '🥈 白银装备盲盒 ×1';
     return (
       <div className="fade-in">
         <ConfettiBurst />
         <div className="card card-warm" style={{ textAlign: 'center', padding: '30px 22px' }}>
           <div style={{ marginBottom: 12 }}>
-            <span className="stamp-closed">🏆 BOSS DEFEATED · 大胜凯旋</span>
+            <span className="stamp-closed">🏆 WORLD BOSS SLAIN · 首领讨伐成功</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
-            <DetectiveAvatar mood="celebrating" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={132} />
+            <DetectiveAvatar mood="celebrating" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={136} />
           </div>
-          <h2 style={{ margin: '8px 0 6px', fontSize: 26, fontWeight: 900, color: '#92400E' }}>
-            太燃了，{profile.nickname} 击败了「{activeBossChapter.bossName}」！
+          <h2 style={{ margin: '8px 0 6px', fontSize: 25, fontWeight: 900, color: '#FDE047' }}>
+            {profile.nickname} 讨伐了世界 BOSS「{activeBossChapter.bossName}」！
           </h2>
-          <p style={{ margin: '0 auto 18px', maxWidth: 520, color: '#78350F', fontWeight: 700 }}>
-            {activeBossChapter.bossEmoji} {activeBossChapter.bossName} 投降说：“{activeBossChapter.bossDefeatLine}”
+          <p style={{ margin: '0 auto 16px', maxWidth: 520, color: '#D6C7B2', fontWeight: 600 }}>
+            {activeBossChapter.bossEmoji} {activeBossChapter.bossName} 哀嚎倒下：“{activeBossChapter.bossDefeatLine}”
           </p>
 
           <div
             style={{
               display: 'inline-flex',
-              gap: 14,
+              gap: 12,
               flexWrap: 'wrap',
               justifyContent: 'center',
-              background: '#FFFFFF',
-              border: '2.5px solid #F59E0B',
-              borderRadius: 18,
-              padding: '14px 24px',
-              marginBottom: 18,
+              background: '#120F18',
+              border: '2px solid #F59E0B',
+              borderRadius: 16,
+              padding: '14px 22px',
+              marginBottom: 16,
             }}
           >
-            <span style={{ fontWeight: 900, fontSize: 18, color: '#D97706' }}>
-              🎁 宝箱 ⭐ +{activeBossChapter.chestStars}
-            </span>
-            <span style={{ fontWeight: 900, fontSize: 18, color: '#EA580C' }}>
-              🦴 智慧狗粮 +{activeBossChapter.chestTreats}
-            </span>
-            <span style={{ fontWeight: 900, fontSize: 18, color: '#7C3AED' }}>
-              ⚡ 经验 +100 XP
-            </span>
+            <span style={{ fontWeight: 900, fontSize: 17, color: '#FDE047' }}>⭐ +{activeBossChapter.chestStars}</span>
+            <span style={{ fontWeight: 900, fontSize: 17, color: '#FDBA74' }}>{droppedBoxName}</span>
+            <span style={{ fontWeight: 900, fontSize: 17, color: '#C084FC' }}>🏆 +100 SP · +100 XP</span>
           </div>
 
           {unlockedCard && (
@@ -119,37 +124,36 @@ export const AdventureMapView: React.FC<Props> = ({
               style={{
                 maxWidth: 480,
                 margin: '0 auto 20px',
-                background: 'linear-gradient(135deg, #FEF3C7, #EDE9FE)',
-                border: '2.5px solid #8B5CF6',
-                borderRadius: 18,
-                padding: '14px 18px',
+                background: 'rgba(139, 92, 246, 0.22)',
+                border: '2px solid #A855F7',
+                borderRadius: 16,
+                padding: '12px 16px',
                 textAlign: 'left',
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 900, color: '#6D28D9' }}>
-                🃏 解锁稀有口诀卡牌 [{unlockedCard.rarity}]
+              <div style={{ fontSize: 12, fontWeight: 900, color: '#D8B4FE' }}>
+                🃏 传奇符文掉落 [{unlockedCard.rarity}]
               </div>
-              <div style={{ fontSize: 17, fontWeight: 900, marginTop: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, marginTop: 3 }}>
                 {unlockedCard.emoji} {unlockedCard.title}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#3B0764', marginTop: 4 }}>
-                {unlockedCard.rule}
-              </div>
+              <div style={{ fontSize: 13, color: '#F3E8FF', marginTop: 3 }}>{unlockedCard.rule}</div>
             </div>
           )}
 
           <button className="btn-primary" onClick={() => setActiveBossChapter(null)}>
-            返回神探大地图 →
+            返回庇护所地牢大地图 →
           </button>
         </div>
       </div>
     );
   }
 
-  // ================= Boss 战实时战斗界面 =================
+  // ================= 世界 BOSS 实时血条战斗 =================
   if (activeBossChapter && bossPool.length > 0) {
     const currentCase = bossPool[qIdx % bossPool.length];
     const targetStep = currentCase.steps[currentCase.steps.length - 1];
+    const hpPct = Math.round((bossHp / bossMaxHp) * 100);
 
     const handleTokenClick = (idx: number) => {
       const tok = currentCase.tokens[idx];
@@ -160,9 +164,9 @@ export const AdventureMapView: React.FC<Props> = ({
           setFoundTokens((prev) => [...prev, idx]);
           setShieldBroken(true);
         }
-        setBattleLog(`⚡ 破盾成功！找到关键线索：${tok.clueTip || tok.text}`);
+        setBattleLog(`⚡ BOSS 护盾粉碎！下击伤害暴击 150 HP！线索：${tok.clueTip || tok.text}`);
       } else {
-        setBattleLog(`再移一下放大镜，找找隐藏在题干里的关键陷阱词就能打破 Boss 护盾！`);
+        setBattleLog('再扫描其他词！找准关键词就能击碎 BOSS 护盾打出 150 暴击伤害！');
       }
     };
 
@@ -170,35 +174,28 @@ export const AdventureMapView: React.FC<Props> = ({
       if (optIdx === targetStep.correctIndex) {
         sound.playStepSuccess();
         const skillName = ATTACK_SKILLS[(qIdx + battleCombo) % ATTACK_SKILLS.length];
-        const nextHp = Math.max(0, bossHp - 1);
+        const dmg = shieldBroken ? 150 : 100;
+        const nextHp = Math.max(0, bossHp - dmg);
         setBossHp(nextHp);
         setBattleCombo((c) => c + 1);
-        setBossShake(true);
-        setTimeout(() => setBossShake(false), 450);
+        triggerBossHit(dmg, shieldBroken);
 
         if (nextHp <= 0) {
           sound.playCaseSolved();
           onDefeatBoss(activeBossChapter);
           setVictory(true);
         } else {
-          setBattleLog(
-            `${skillName} 命中 ${activeBossChapter.bossName}（剩余 ${nextHp} 格血）！${shieldBroken ? '破盾暴击超帅！' : ''}`
-          );
+          setBattleLog(`${skillName} 命中 ${activeBossChapter.bossName}，造成 -${dmg} HP 伤害！`);
           setQIdx((n) => n + 1);
           setFoundTokens([]);
           setShieldBroken(false);
           setTriedWrong([]);
         }
       } else {
-        // 零惩罚勇气护盾！绝不扣血判负
         sound.playGentleOops();
-        if (!triedWrong.includes(optIdx)) {
-          setTriedWrong((prev) => [...prev, optIdx]);
-        }
+        if (!triedWrong.includes(optIdx)) setTriedWrong((prev) => [...prev, optIdx]);
         setBattleCombo(0);
-        setBattleLog(
-          `🛡️ 勇气护盾稳稳挡住了陷阱！阿探提示：${targetStep.optionFeedback[optIdx]}`
-        );
+        setBattleLog(`🛡️ 圣光护盾挡住了 BOSS 攻击！提示：${targetStep.optionFeedback[optIdx]}`);
       }
     };
 
@@ -206,16 +203,16 @@ export const AdventureMapView: React.FC<Props> = ({
       if ((profile.inventory?.item_boss_bomb || 0) <= 0 || !activeBossChapter) return;
       sound.playUnlock();
       onConsumeProp('item_boss_bomb');
-      const nextHp = Math.max(0, bossHp - 1);
+      const dmg = 150;
+      const nextHp = Math.max(0, bossHp - dmg);
       setBossHp(nextHp);
-      setBossShake(true);
-      setTimeout(() => setBossShake(false), 450);
+      triggerBossHit(dmg, true);
       if (nextHp <= 0) {
         sound.playCaseSolved();
         onDefeatBoss(activeBossChapter);
         setVictory(true);
       } else {
-        setBattleLog(`💣 轰隆！！Boss 暴击能量弹正中 ${activeBossChapter.bossName}，直接炸掉 1 格血（剩余 ${nextHp} 血）！`);
+        setBattleLog(`💣 轰隆！！烈焰暴击弹直接炸掉 ${activeBossChapter.bossName} 150 HP！`);
       }
     };
 
@@ -228,24 +225,24 @@ export const AdventureMapView: React.FC<Props> = ({
         .filter((idx) => idx >= 0);
       setFoundTokens(clues);
       setShieldBroken(true);
-      setBattleLog('🔦 透视扫描仪秒破 Boss 护盾！所有隐藏线索已照亮！');
+      setBattleLog('🔦 透视扫描仪秒破 BOSS 护盾！下击必爆 -150 HP！');
     };
 
     return (
       <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn-soft" onClick={() => setActiveBossChapter(null)}>
-            <ArrowLeft size={16} /> 暂离战场
+            <ArrowLeft size={16} /> 暂离副本
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
             {battleCombo >= 2 && (
               <span className="pill pill-orange">
-                <Flame size={14} /> {battleCombo} 连击！
+                <Flame size={13} /> {battleCombo} 连斩！
               </span>
             )}
             <button
               className="btn-soft"
-              style={{ padding: '6px 11px', fontSize: 12 }}
+              style={{ padding: '6px 10px', fontSize: 12 }}
               disabled={(profile.inventory?.item_scanner || 0) <= 0 || shieldBroken}
               onClick={handleBossScanner}
             >
@@ -253,114 +250,104 @@ export const AdventureMapView: React.FC<Props> = ({
             </button>
             <button
               className="btn-primary"
-              style={{ padding: '6px 12px', fontSize: 12 }}
+              style={{ padding: '6px 11px', fontSize: 12 }}
               disabled={(profile.inventory?.item_boss_bomb || 0) <= 0}
               onClick={handleThrowBomb}
             >
-              💣 丢暴击弹 ({profile.inventory?.item_boss_bomb || 0})
+              💣 暴击弹 -150HP ({profile.inventory?.item_boss_bomb || 0})
             </button>
             {currentCase.subject === 'math' && (
               <button className="btn-soft" onClick={() => setScratchOpen(true)}>
-                <PenTool size={15} /> 打草稿
+                <PenTool size={15} /> 草稿纸
               </button>
             )}
           </div>
         </div>
 
-        {/* 战斗舞台：阿探 vs Boss */}
-        <div
-          className="card"
-          style={{
-            background: activeBossChapter.bgGradient,
-            borderColor: activeBossChapter.themeColor,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
-            padding: '16px 20px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <DetectiveAvatar mood={battleCombo > 0 ? 'celebrating' : 'curious'} skinId={profile.equippedSkinId} equippedGear={equippedGear} size={86} />
-            <div>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>{profile.nickname} & 阿探</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800, color: '#059669', marginTop: 4 }}>
-                <Shield size={15} /> 勇气护盾：无敌守护中（答错不扣血！）
+        {/* 世界 BOSS 暗黑战斗舞台 */}
+        <div className="combat-arena" style={{ borderColor: '#DC2626' }}>
+          {dmgPopup && <div className="dmg-popup">{dmgPopup}</div>}
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <DetectiveAvatar mood={battleCombo > 0 ? 'celebrating' : 'curious'} skinId={profile.equippedSkinId} equippedGear={equippedGear} size={88} />
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 16, color: '#FDE68A' }}>{profile.nickname} & 阿探</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: '#6EE7B7', marginTop: 4 }}>
+                  <Shield size={14} /> 圣光护盾：无敌免伤
+                </div>
               </div>
             </div>
-          </div>
 
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#DC2626' }}>VS</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#EF4444' }}>⚔️ VS</div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              transform: bossShake ? 'translateX(8px) scale(0.95)' : 'none',
-              transition: 'transform 0.15s ease',
-            }}
-          >
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 900, fontSize: 17, color: '#7F1D1D' }}>
-                {activeBossChapter.bossName}
-              </div>
-              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', marginTop: 5 }}>
-                {Array.from({ length: activeBossChapter.bossHp }, (_, i) => (
-                  <Heart
-                    key={i}
-                    size={18}
-                    fill={i < bossHp ? '#EF4444' : '#E2E8F0'}
-                    color={i < bossHp ? '#B91C1C' : '#94A3B8'}
-                  />
-                ))}
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: shieldBroken ? '#059669' : '#B45309', marginTop: 3 }}>
-                {shieldBroken ? '⚡ 护盾已击破！' : '🛡️ 找线索可破除 Boss 护盾'}
-              </div>
-            </div>
             <div
-              style={{
-                width: 68,
-                height: 68,
-                borderRadius: 20,
-                background: '#FFFFFF',
-                border: '3px solid #F87171',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 38,
-              }}
+              className={bossShake ? 'monster-hit' : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 230, justifyContent: 'flex-end' }}
             >
-              {activeBossChapter.bossEmoji}
+              <div style={{ flex: 1, maxWidth: 310 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontWeight: 900, fontSize: 16, color: '#FCA5A5' }}>
+                    {activeBossChapter.bossName}
+                  </span>
+                  <span className="pill pill-orange" style={{ fontSize: 11 }}>世界 BOSS</span>
+                </div>
+                <div className="hp-bar-shell">
+                  <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11.5,
+                      fontWeight: 900,
+                      color: '#FFFFFF',
+                      textShadow: '0 1px 3px #000',
+                    }}
+                  >
+                    BOSS HP {bossHp} / {bossMaxHp}
+                  </div>
+                </div>
+                <div className="shield-bar-shell">
+                  <div className="shield-bar-fill" style={{ width: shieldBroken ? '0%' : '100%' }} />
+                </div>
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: shieldBroken ? '#FDE047' : '#7DD3FC', marginTop: 3, textAlign: 'right' }}>
+                  {shieldBroken ? '⚡ 护盾已破！答对打出 150 暴击伤害！' : '🛡️ 找线索可破盾（伤害 100→150 暴击）'}
+                </div>
+              </div>
+              <div
+                style={{
+                  width: 68,
+                  height: 68,
+                  borderRadius: 18,
+                  background: 'linear-gradient(145deg, #450A0A, #1C0505)',
+                  border: '2.5px solid #EF4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 38,
+                  boxShadow: '0 0 22px rgba(239, 68, 68, 0.5)',
+                  flexShrink: 0,
+                }}
+              >
+                {activeBossChapter.bossEmoji}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 战况播报条 */}
         {battleLog && (
-          <div
-            className="fade-in"
-            style={{
-              background: '#FFFBEB',
-              border: '2px solid #FCD34D',
-              borderRadius: 14,
-              padding: '10px 15px',
-              fontSize: 14,
-              fontWeight: 800,
-              color: '#92400E',
-            }}
-          >
+          <div className="fade-in" style={{ background: 'rgba(217, 119, 6, 0.2)', border: '1.5px solid #F59E0B', borderRadius: 12, padding: '9px 14px', fontSize: 13.5, fontWeight: 800, color: '#FEF3C7' }}>
             {battleLog}
           </div>
         )}
 
-        {/* 当前攻击招式题目 */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 17, fontWeight: 900 }}>
-              <Swords size={18} style={{ verticalAlign: 'middle', marginRight: 6, color: '#DC2626' }} />
+            <div style={{ fontSize: 17, fontWeight: 900, color: '#FDE68A' }}>
+              <Swords size={18} style={{ verticalAlign: 'middle', marginRight: 6, color: '#F97316' }} />
               {currentCase.title}
             </div>
             {currentCase.readAloudText && (
@@ -371,14 +358,12 @@ export const AdventureMapView: React.FC<Props> = ({
           </div>
 
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#B45309', marginBottom: 6 }}>
-              <Search size={14} style={{ verticalAlign: 'middle' }} /> 先点亮题干线索，打破 Boss 护盾！
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#FBBF24', marginBottom: 6 }}>
+              <Search size={14} style={{ verticalAlign: 'middle' }} /> 扫描题干弱点击破 BOSS 护盾（暴击 -150 HP）：
             </div>
             <div className="clue-board">
               {currentCase.tokens.map((tok, i) => {
-                if (tok.isBlank) {
-                  return <span key={i} className="clue-token blank-slot">___</span>;
-                }
+                if (tok.isBlank) return <span key={i} className="clue-token blank-slot">___</span>;
                 const found = foundTokens.includes(i);
                 return (
                   <button
@@ -394,10 +379,14 @@ export const AdventureMapView: React.FC<Props> = ({
             </div>
           </div>
 
-          {currentCase.visual && <MathVisualizer spec={currentCase.visual} stage={0} />}
+          {currentCase.visual && (
+            <div className="math-visual-light">
+              <MathVisualizer spec={currentCase.visual} stage={0} />
+            </div>
+          )}
 
-          <div style={{ fontSize: 16, fontWeight: 800 }}>
-            🎯 发动攻击：{currentCase.steps.length > 1 ? targetStep.prompt.replace(/^第[二三]步（.*?）：|^第[二三]步：/, '') : targetStep.prompt}
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#FDE68A' }}>
+            🎯 选择技能攻击：{currentCase.steps.length > 1 ? targetStep.prompt.replace(/^第[二三]步（.*?）：|^第[二三]步：/, '') : targetStep.prompt}
           </div>
 
           <div className="option-grid">
@@ -424,15 +413,13 @@ export const AdventureMapView: React.FC<Props> = ({
     );
   }
 
-  // ================= 6 大冒险地图主页 =================
+  // ================= 6 大庇护所暗黑地下城地图主页 =================
   const totalDefeated = defeatedSet.size;
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div
-        className="card"
+        className="card card-warm"
         style={{
-          background: 'linear-gradient(135deg, #FEF3C7, #DBEAFE 120%)',
-          borderColor: '#F59E0B',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -441,41 +428,39 @@ export const AdventureMapView: React.FC<Props> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <DetectiveAvatar mood="happy" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={86} />
+          <DetectiveAvatar mood="happy" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={90} />
           <div>
-            <span className="pill pill-orange">🗺️ 神探冒险 RPG · 深圳智慧岛</span>
-            <h2 style={{ margin: '6px 0 4px', fontSize: 22, fontWeight: 900 }}>
-              6 大主题岛屿 & 守关大 Boss 挑战
+            <span className="pill pill-orange">🗺️ 暗黑智慧纪元 IV · 6 大地下城地牢</span>
+            <h2 style={{ margin: '6px 0 4px', fontSize: 22, fontWeight: 900, color: '#FDE68A' }}>
+              庇护所地下城与世界 BOSS 讨伐战
             </h2>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#475569' }}>
-              每座岛屿对应深圳四年级核心重难点！先热身破案或直接挑战大 Boss，击败即可开启豪华宝箱拿狗粮和 SSR 卡牌！
+            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink-muted)' }}>
+              每道题目都是带血条的小怪与精英，讨伐世界 BOSS 必掉传奇盲盒、稀有符文卡与海量赛季点数！
             </p>
           </div>
         </div>
-        <div style={{ background: '#FFFFFF', padding: '10px 18px', borderRadius: 16, border: '2px solid #F59E0B', textAlign: 'center' }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: '#92400E' }}>已击败 Boss</div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#DC2626' }}>
+        <div style={{ background: '#120F18', padding: '10px 18px', borderRadius: 14, border: '2px solid #D97706', textAlign: 'center' }}>
+          <div style={{ fontSize: 11.5, fontWeight: 800, color: '#B6A995' }}>世界 BOSS 讨伐</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: '#FDE047' }}>
             <Trophy size={18} style={{ verticalAlign: 'middle' }} /> {totalDefeated} / {ADVENTURE_CHAPTERS.length}
           </div>
         </div>
       </div>
 
-      {/* 岛屿章节卡片列表 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
         {ADVENTURE_CHAPTERS.map((chap) => {
           const chapCases = allCases.filter((c) => chap.skills.includes(c.skill));
           const solvedInChap = chapCases.filter((c) => profile.solvedCaseIds.includes(c.id)).length;
-          const nextCase =
-            chapCases.find((c) => !profile.solvedCaseIds.includes(c.id)) || chapCases[0];
+          const nextCase = chapCases.find((c) => !profile.solvedCaseIds.includes(c.id)) || chapCases[0];
           const bossDefeated = defeatedSet.has(chap.id);
+          const boxDrop = chap.order >= 5 ? '🌌 神话盲盒' : chap.order >= 3 ? '🥇 黄金盲盒' : '🥈 白银盲盒';
 
           return (
             <div
               key={chap.id}
               className="card"
               style={{
-                background: chap.bgGradient,
-                borderColor: bossDefeated ? '#10B981' : chap.themeColor,
+                borderColor: bossDefeated ? '#10B981' : '#78350F',
                 padding: 18,
                 display: 'flex',
                 flexDirection: 'column',
@@ -487,28 +472,23 @@ export const AdventureMapView: React.FC<Props> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 30 }}>{chap.emoji}</span>
                   {bossDefeated ? (
-                    <span className="pill pill-green">
-                      <CheckCircle2 size={13} /> 已收复岛屿
-                    </span>
+                    <span className="pill pill-green"><CheckCircle2 size={13} /> 地牢已净化</span>
                   ) : (
-                    <span className="pill pill-amber">
-                      破案进度 {solvedInChap}/{chapCases.length}
-                    </span>
+                    <span className="pill pill-amber">清怪进度 {solvedInChap}/{chapCases.length}</span>
                   )}
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#0F172A' }}>{chap.name}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginTop: 2 }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#FDE68A' }}>{chap.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-muted)', marginTop: 2 }}>
                   {chap.subtitle}
                 </div>
 
-                {/* Boss 信息卡 */}
                 <div
                   style={{
                     marginTop: 10,
-                    background: 'rgba(255,255,255,0.85)',
-                    borderRadius: 14,
+                    background: '#110D16',
+                    borderRadius: 12,
                     padding: '10px 12px',
-                    border: '1.5px solid rgba(15,23,42,0.08)',
+                    border: '1.5px solid #4A2525',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
@@ -516,11 +496,11 @@ export const AdventureMapView: React.FC<Props> = ({
                 >
                   <span style={{ fontSize: 28 }}>{chap.bossEmoji}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 900, fontSize: 14, color: '#991B1B' }}>
-                      守关 Boss：{chap.bossName}（{chap.bossHp} 格血）
+                    <div style={{ fontWeight: 900, fontSize: 14, color: '#FCA5A5' }}>
+                      世界 BOSS：{chap.bossName}（{chap.bossHp * 100} HP）
                     </div>
-                    <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>
-                      宝箱奖励：⭐+{chap.chestStars} · 🦴+{chap.chestTreats} · 稀有卡牌
+                    <div style={{ fontSize: 12, color: '#FDE047', fontWeight: 700, marginTop: 2 }}>
+                      必掉：{boxDrop} · ⭐+{chap.chestStars} · 符文卡
                     </div>
                   </div>
                 </div>
@@ -533,7 +513,7 @@ export const AdventureMapView: React.FC<Props> = ({
                     style={{ flex: 1, padding: '10px 8px', fontSize: 13 }}
                     onClick={() => onStartCase(nextCase)}
                   >
-                    <Play size={14} fill="currentColor" /> 先做小案练手
+                    <Play size={14} fill="currentColor" /> 刷地牢小怪
                   </button>
                 )}
                 <button
@@ -541,7 +521,7 @@ export const AdventureMapView: React.FC<Props> = ({
                   style={{ flex: 1, padding: '10px 8px', fontSize: 13 }}
                   onClick={() => startBossBattle(chap)}
                 >
-                  <Swords size={14} /> {bossDefeated ? '再战 Boss' : '挑战大 Boss!'}
+                  <Swords size={14} /> {bossDefeated ? '再战 BOSS' : '讨伐 BOSS!'}
                 </button>
               </div>
             </div>
@@ -550,7 +530,7 @@ export const AdventureMapView: React.FC<Props> = ({
       </div>
 
       <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-muted)', fontWeight: 600 }}>
-        <Sparkles size={14} style={{ verticalAlign: 'middle' }} /> 提示：打 Boss 拥有无敌“勇气护盾”，答错不会失败只会给提示，大胆挑战吧！
+        <Sparkles size={14} style={{ verticalAlign: 'middle' }} /> 讨伐世界 BOSS 拥有圣光免伤护盾，答错绝不阵亡，勇敢发起挑战吧！
       </div>
     </div>
   );

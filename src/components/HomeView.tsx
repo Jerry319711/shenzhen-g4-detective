@@ -1,12 +1,12 @@
 import React from 'react';
-import { Award, BookOpen, Calculator, ClipboardCheck, Compass, Crown, Play, Sparkles, Swords, Target, Wand2 } from 'lucide-react';
+import { Award, BookOpen, Calculator, ClipboardCheck, Compass, Crown, Gift, Play, Sparkles, Swords, Target, Wand2 } from 'lucide-react';
 import { DetectiveCase, LearnerProfile } from '../types';
 import { DetectiveAvatar } from './DetectiveAvatar';
 import { getRankForStars } from '../data/rewards';
 import { ADVENTURE_CHAPTERS, KNOWLEDGE_CARDS, getLevelFromXp } from '../data/rpgData';
 import { SKILL_META } from '../data/curriculum';
 import { EXAM_PAPERS } from '../data/exams';
-import { getSeasonTierInfo } from '../data/seasonData';
+import { getSeasonTierInfo, getTotalBoxesInInventory } from '../data/seasonData';
 import { computeSkillMastery } from '../utils/storage';
 
 interface Props {
@@ -25,6 +25,7 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
   const bossDefeated = (profile.defeatedBossIds || []).length;
   const cardsOwned = (profile.collectedCardIds || []).length;
   const seasonInfo = getSeasonTierInfo(profile.seasonPoints || 0);
+  const totalBoxes = getTotalBoxesInInventory(profile.inventory);
 
   const mastery = computeSkillMastery(
     profile.attempts,
@@ -51,10 +52,10 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
 
   const greetingText =
     dailyDone === 0
-      ? `嗨，${profile.nickname} 神探！今天事务所收到 ${profile.dailyGoal} 份小急件，或者去深圳智慧岛打大 Boss 赢宝箱狗粮吧！`
+      ? `欢迎回到庇护所，${profile.nickname}！今日有 ${profile.dailyGoal} 份悬赏猎杀任务，斩杀小怪和世界 BOSS 可爆出 4 档暗黑盲盒与皮肤碎片！`
       : dailyDone < profile.dailyGoal
-      ? `太棒啦，${profile.nickname}！今天已破 ${dailyDone} 宗案子，再破 ${profile.dailyGoal - dailyDone} 宗就能拿今日满分徽章！`
-      : `神探无敌！今日急件全部搞定！要不要去模拟考场刷一套 12~20 题大卷，或者去喂养阿探、抽口诀卡牌？`;
+      ? `战况大捷，${profile.nickname}！今天已斩杀 ${dailyDone} 只怪物，再斩 ${profile.dailyGoal - dailyDone} 只就能达成今日猎魔目标！`
+      : `传奇猎魔人！今日悬赏已全部横扫！去挑战 20 套地下城试炼卷、讨伐世界 BOSS，或者去拆暗黑盲盒合成皮肤吧！`;
 
   const englishSolved = allCases.filter((c) => c.subject === 'english' && profile.solvedCaseIds.includes(c.id)).length;
   const englishTotal = allCases.filter((c) => c.subject === 'english').length;
@@ -63,7 +64,7 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Hero 区域 */}
+      {/* Hero 区域：暗黑庇护所英雄台 + 今日悬赏怪物 */}
       <div className="hero-grid">
         <div className="card card-warm" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
@@ -80,25 +81,23 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
                 style={{ padding: '4px 10px', fontSize: 12 }}
                 onClick={() => onNavigate('wardrobe')}
               >
-                🎨 给阿探换皮肤
+                🎨 换皮肤 / 拆盲盒
               </button>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
                 <span className="pill pill-purple">Lv.{lvl.level}</span>
-                <span className="pill pill-amber">
-                  {rank.current.badge} {rank.current.title}
-                </span>
-                <span className="pill pill-orange">🦴 {profile.treats || 0} 狗粮</span>
+                <span className="pill pill-amber">{rank.current.badge} {rank.current.title}</span>
+                <span className="pill pill-blue">🧩 {profile.skinShards || 0} 碎片</span>
               </div>
               <div className="speech-bubble">{greetingText}</div>
             </div>
           </div>
 
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#92400E', marginBottom: 5 }}>
-              <span>⚡ 神探经验 Lv.{lvl.level} ({lvl.currentXp}/{lvl.neededXp} XP)</span>
-              <span>🃏 图鉴 {cardsOwned}/{KNOWLEDGE_CARDS.length} · 🐉 Boss {bossDefeated}/{ADVENTURE_CHAPTERS.length}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#FDE68A', marginBottom: 5 }}>
+              <span>⚡ 英雄经验 Lv.{lvl.level} ({lvl.currentXp}/{lvl.neededXp} XP)</span>
+              <span>🃏 符文 {cardsOwned}/{KNOWLEDGE_CARDS.length} · 🐉 BOSS {bossDefeated}/{ADVENTURE_CHAPTERS.length}</span>
             </div>
             <div className="progress-track">
               <div className="progress-fill" style={{ width: `${lvl.pct}%` }} />
@@ -106,12 +105,12 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
           </div>
         </div>
 
-        {/* 今日 5 分钟急件 */}
+        {/* 今日悬赏猎杀卡片 */}
         <div
           className="card"
           style={{
-            background: 'linear-gradient(155deg, #FFFBEB, #FEF3C7)',
-            borderColor: '#FBBF24',
+            background: 'linear-gradient(155deg, #2A1419, #17111C)',
+            borderColor: '#DC2626',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
@@ -120,9 +119,9 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span className="pill pill-orange">⚡ 今日 5 分钟急件</span>
-              <span style={{ fontWeight: 900, color: '#B45309', fontSize: 15 }}>
-                {dailyDone} / {profile.dailyGoal} 宗
+              <span className="pill pill-orange">⚔️ 今日庇护所悬赏</span>
+              <span style={{ fontWeight: 900, color: '#FDE047', fontSize: 15 }}>
+                {dailyDone} / {profile.dailyGoal} 斩杀
               </span>
             </div>
             <div className="progress-track" style={{ marginBottom: 12 }}>
@@ -130,21 +129,23 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
                 className="progress-fill"
                 style={{
                   width: `${dailyPct}%`,
-                  background: 'linear-gradient(90deg, #34D399, #10B981)',
+                  background: 'linear-gradient(90deg, #10B981, #34D399)',
                 }}
               />
             </div>
-            <div style={{ fontSize: 12, color: '#78350F', fontWeight: 700 }}>智能弱项推荐：</div>
-            <div style={{ fontSize: 17, fontWeight: 900, color: '#0F172A', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: '#FCA5A5', fontWeight: 700 }}>
+              下一个悬赏目标（{recommendedCase.difficulty * 100} HP）：
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: '#FDE68A', marginTop: 2 }}>
               {recommendedCase.title}
             </div>
-            <div style={{ fontSize: 12, color: '#92400E', marginTop: 4 }}>
-              {recommendedCase.textbookRef} · 抓捕「{recommendedCase.suspectName}」
+            <div style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 4 }}>
+              {recommendedCase.textbookRef} · 怪物：{recommendedCase.suspectName}
             </div>
           </div>
 
           <button className="btn-primary" style={{ width: '100%' }} onClick={() => onStartCase(recommendedCase)}>
-            <Play size={18} fill="currentColor" /> 立即出发破案！
+            <Swords size={18} /> 拔剑出战斩杀！
           </button>
         </div>
       </div>
@@ -155,199 +156,195 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
         onClick={() => onNavigate('season')}
         style={{
           textAlign: 'left',
-          background: 'linear-gradient(115deg, #1E1B4B, #312E81 55%, #0E7490)',
-          borderColor: '#38BDF8',
-          color: '#FFFFFF',
+          background: 'linear-gradient(115deg, #26143D, #1B1733 55%, #0D3342)',
+          borderColor: '#F59E0B',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 14,
           flexWrap: 'wrap',
-          padding: '16px 20px',
+          padding: '15px 18px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 220 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 14, background: 'linear-gradient(135deg, #FACC15, #F59E0B)', color: '#78350F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 12, background: 'linear-gradient(135deg, #FACC15, #D97706)', color: '#1C1008', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Crown size={24} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 900, fontSize: 17 }}>🏆 S1 赛季通行证 · 智慧星辰季</span>
-              <span className="pill" style={{ background: '#FACC15', color: '#713F12' }}>
-                Lv.{seasonInfo.currentTier} / 20
-              </span>
+              <span style={{ fontWeight: 900, fontSize: 17, color: '#FDE047' }}>🏆 S1 暗黑赛季通行证 · 智慧星辰季</span>
+              <span className="pill pill-amber">Lv.{seasonInfo.currentTier} / 20</span>
             </div>
             <div style={{ fontSize: 13, color: '#BAE6FD', fontWeight: 600, marginTop: 3 }}>
-              完成每日悬赏领限定皮肤【👨‍🚀太空宇航员 / 🐉烈焰龙骑士 / 🤖星际机甲】、神秘盲盒与强力道具！
+              20 级双轨狂送青铜/白银/黄金/神话盲盒与终极神话皮肤【🤖 星际机甲阿探】！
             </div>
           </div>
         </div>
         <span className="btn-primary" style={{ padding: '9px 16px', fontSize: 14 }}>
-          进入领大奖 →
+          进入领战利品 →
         </span>
       </button>
 
-      {/* 两大王牌深玩入口：RPG 冒险大地图 + 16 套完整模拟试卷 */}
-      <div className="portal-grid" style={{ marginBottom: 2 }}>
+      {/* 两大王牌深玩入口：地下城世界 BOSS + 20 套完整试炼卷 */}
+      <div className="portal-grid" style={{ marginBottom: 0 }}>
         <button
           className="portal-card"
           style={{
-            background: 'linear-gradient(135deg, #FFF1F2, #FEF3C7)',
-            borderColor: '#FB7185',
+            background: 'linear-gradient(135deg, #2F1118, #190D16)',
+            borderColor: '#DC2626',
           }}
           onClick={() => onNavigate('map')}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: '#E11D48', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#DC2626', color: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Compass size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#881337' }}>神探冒险地图 · 打 Boss</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#BE123C' }}>6 大深圳智慧岛 · 破盾连击开宝箱</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#FCA5A5' }}>庇护所地牢 · 世界 BOSS</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#FDE047' }}>6 大地下城 · 400~800 HP 首领讨伐</div>
               </div>
             </div>
             <span className="pill pill-orange">
               <Swords size={12} /> {bossDefeated}/{ADVENTURE_CHAPTERS.length}
             </span>
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: '#9F1239', fontWeight: 600 }}>
-            用放大镜打破 Boss 护盾，发动激光斩击败 6 位粗心大魔王，狂拿星星、狗粮和 SSR 口诀神卡！
+          <p style={{ margin: 0, fontSize: 13.5, color: '#D6C7B2', fontWeight: 600 }}>
+            破盾暴击 -150 HP！讨伐世界 BOSS 必掉白银/黄金/神话盲盒与稀有符文卡！
           </p>
         </button>
 
         <button
           className="portal-card"
           style={{
-            background: 'linear-gradient(135deg, #FEF3C7, #FFEDD5)',
-            borderColor: '#F59E0B',
+            background: 'linear-gradient(135deg, #2D1F0D, #18130E)',
+            borderColor: '#D97706',
           }}
           onClick={() => onNavigate('exams')}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: '#D97706', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#D97706', color: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <ClipboardCheck size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#78350F' }}>神探模拟考场（16 套卷）</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>每卷 12~20 题 · 支持无限换新变式卷</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#FDE68A' }}>秘境试炼考场（{EXAM_PAPERS.length} 套卷）</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#FDBA74' }}>每卷 12~20 题 · 交卷必掉暗黑盲盒！</div>
               </div>
             </div>
             <span className="pill pill-amber">已考 {(profile.examHistory || []).length} 次</span>
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: '#92400E', fontWeight: 600 }}>
-            四上/四下期中期末卷、防粗心专卷与 20 题终极大联考！带答题卡、电子草稿纸和考前检查提醒！
+          <p style={{ margin: 0, fontSize: 13.5, color: '#D6C7B2', fontWeight: 600 }}>
+            20 套深圳四年级期中期末/压轴大卷 + 无限换新变式卷！自带电子草稿纸和考前复查提醒！
           </p>
         </button>
       </div>
 
-      {/* 四大专题馆 */}
+      {/* 四大刷怪与解惑地牢 */}
       <div className="portal-grid">
         <button className="portal-card english" onClick={() => onNavigate('english')}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: '#3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#2563EB', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <BookOpen size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#1E3A8A' }}>英语语法探案馆</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#2563EB' }}>沪教牛津深圳版 4A/4B · {englishTotal} 宗精选案</div>
+                <div style={{ fontSize: 17.5, fontWeight: 900, color: '#93C5FD' }}>英语语法魔窟</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#BFDBFE' }}>沪教牛津深圳版 4A/4B · {englishTotal} 只怪</div>
               </div>
             </div>
             <span className="pill pill-blue">{englishSolved}/{englishTotal}</span>
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: '#1E40AF', fontWeight: 600 }}>
-            覆盖三单、does照妖镜、感官动词、There be、进行时双写、时间介词与抓语法小偷改错！
+          <p style={{ margin: 0, fontSize: 13.5, color: '#CBD5E1', fontWeight: 600 }}>
+            每道语法题都是带血条的小怪与精英！覆盖三单、照妖镜、There be、进行时、代词与全真改错！
           </p>
         </button>
 
         <button className="portal-card math" onClick={() => onNavigate('math')}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: '#10B981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Calculator size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#064E3B' }}>数学逻辑实验室</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>北师大版 4上/4下 · {mathTotal} 宗图解案</div>
+                <div style={{ fontSize: 17.5, fontWeight: 900, color: '#6EE7B7' }}>数学逻辑地牢</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#A7F3D0' }}>北师大版 4上/4下 · {mathTotal} 只怪</div>
               </div>
             </div>
             <span className="pill pill-green">{mathSolved}/{mathTotal}</span>
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: '#065F46', fontWeight: 600 }}>
-            动态线段图、魔法天平、分配律积木、电子草稿纸！覆盖大数、相遇、和差倍、鸡兔同笼与方程！
+          <p style={{ margin: 0, fontSize: 13.5, color: '#CBD5E1', fontWeight: 600 }}>
+            动态线段图、魔法天平、钟表角、鸡兔同笼与蜗牛爬井！多段连招打爆 300 HP 暗金首领！
           </p>
         </button>
 
         <button className="portal-card fugitive" onClick={() => onNavigate('fugitive')}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: '#F97316', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EA580C', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Target size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#7C2D12' }}>在逃嫌疑人档案</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#EA580C' }}>把错题变成“复仇抓捕悬赏”</div>
+                <div style={{ fontSize: 17.5, fontWeight: 900, color: '#FDBA74' }}>复仇通缉榜（错题怪）</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#FED7AA' }}>曾经溜走的错题怪都在这里</div>
               </div>
             </div>
             <span className="pill pill-orange">
-              {atLargeCount > 0 ? `${atLargeCount} 个待抓捕` : '全部清零 🎉'}
+              {atLargeCount > 0 ? `${atLargeCount} 只在逃` : '全境肃清 🎉'}
             </span>
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: '#9A3412', fontWeight: 600 }}>
-            做题或模考中错过的陷阱会自动收进这里，再次一次破案即可亲手盖上「已归案」红章！
+          <p style={{ margin: 0, fontSize: 13.5, color: '#D6C7B2', fontWeight: 600 }}>
+            战斗和模考中错过的陷阱怪会自动登榜，再次一击必杀即可彻底净化并领复仇星！
           </p>
         </button>
 
         <button className="portal-card tutor" onClick={() => onNavigate('tutor')}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: '#8B5CF6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#7C3AED', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Wand2 size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#4C1D95' }}>阿探解惑实验室</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#7C3AED' }}>苏格拉底讲题 · 按弱项无限出新案</div>
+                <div style={{ fontSize: 17.5, fontWeight: 900, color: '#D8B4FE' }}>圣光祭坛 · 问阿探</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#E9D5FF' }}>苏格拉底讲题 · 召唤弱项新怪</div>
               </div>
             </div>
             <span className="pill pill-purple">
               {profile.geminiApiKey ? '✨ AI 识图就绪' : '🧭 本地引导'}
             </span>
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: '#5B21B6', fontWeight: 600 }}>
-            平时作业卡壳直接问阿探（支持拍题），一步步启发听懂，还能按最弱项一键生成专属新关卡！
+          <p style={{ margin: 0, fontSize: 13.5, color: '#D6C7B2', fontWeight: 600 }}>
+            作业卡壳直接问阿探，一步步拆解听懂，还能按最弱知识点召唤全新精英怪实战演练！
           </p>
         </button>
       </div>
 
-      {/* 基地快捷横幅 */}
+      {/* 盲盒宝库快捷横幅 */}
       <div
-        className="card"
+        className="card card-warm"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 14,
           flexWrap: 'wrap',
-          background: 'linear-gradient(90deg, #FFFFFF, #FEF9C3)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Award size={24} color="#D97706" />
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(245,158,11,0.2)', border: '1.5px solid #F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Gift size={23} color="#FDE047" />
           </div>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>
-              神探基地：换装 · 喂养阿探 · 口诀卡牌图鉴（{cardsOwned}/{KNOWLEDGE_CARDS.length}）· 成就领奖
+            <div style={{ fontWeight: 900, fontSize: 16, color: '#FDE68A' }}>
+              暗黑宝库：4 档盲盒（待拆 {totalBoxes} 个）· 🧩 {profile.skinShards || 0} 皮肤碎片 · 8 款酷炫皮肤
             </div>
             <div style={{ fontSize: 13, color: 'var(--ink-muted)' }}>
-              当前拥有 {profile.stars} ⭐ 与 {profile.treats || 0} 块智慧狗粮，还有 {EXAM_PAPERS.length} 套完整模拟卷等你刷新纪录！
+              攒星星或用盲盒爆出的万能碎片保底合成酷炫皮肤，还能给阿探叠戴 16 件传奇装备！
             </div>
           </div>
         </div>
-        <button className="btn-soft" onClick={() => onNavigate('wardrobe')}>
-          <Sparkles size={16} /> 进入神探基地
+        <button className="btn-primary" onClick={() => onNavigate('wardrobe')}>
+          <Sparkles size={15} /> 进入暗黑宝库
         </button>
       </div>
     </div>

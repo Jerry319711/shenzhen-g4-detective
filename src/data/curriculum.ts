@@ -1,6 +1,7 @@
 import { DetectiveCase, SkillMeta } from '../types';
 import { EXTRA_CASES } from './curriculumExtra';
 import { BATCH2_CASES } from './curriculumBatch2';
+import { BATCH3_CASES } from './curriculumBatch3';
 
 export const SKILL_META: SkillMeta[] = [
   {
@@ -1448,4 +1449,8 @@ export const BASE_CASES: DetectiveCase[] = [
   },
 ];
 
-export const BUILTIN_CASES: DetectiveCase[] = [...BASE_CASES, ...EXTRA_CASES, ...BATCH2_CASES];
+// 统一平衡每宗案件基础星星产出（热身 6⭐ / 进阶 9⭐ / 王牌 12⭐），让皮肤与盲盒更有长期努力的含金量！
+export const BUILTIN_CASES: DetectiveCase[] = [...BASE_CASES, ...EXTRA_CASES, ...BATCH2_CASES, ...BATCH3_CASES].map((c) => ({
+  ...c,
+  rewardStars: c.difficulty === 1 ? 6 : c.difficulty === 2 ? 9 : 12,
+}));

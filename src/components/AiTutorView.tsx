@@ -381,10 +381,9 @@ export const AiTutorView: React.FC<Props> = ({
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* 顶部薄弱项定制出题卡 */}
       <div
-        className="card"
+        className="card card-warm"
         style={{
-          background: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)',
-          borderColor: '#C4B5FD',
+          borderColor: '#8B5CF6',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -397,13 +396,13 @@ export const AiTutorView: React.FC<Props> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span className="pill pill-purple">
-                {profile.geminiApiKey ? '✨ Gemini AI 苏格拉底导师已开启' : '🧭 本地苏格拉底引导模式'}
+                {profile.geminiApiKey ? '✨ Gemini AI 圣光导师已开启' : '🧭 本地苏格拉底引导模式'}
               </span>
             </div>
-            <h2 style={{ margin: '6px 0 2px', fontSize: 20, fontWeight: 900, color: '#4C1D95' }}>
-              阿探解惑实验室
+            <h2 style={{ margin: '6px 0 2px', fontSize: 20, fontWeight: 900, color: '#E9D5FF' }}>
+              圣光祭坛 · 问阿探
             </h2>
-            <div style={{ fontSize: 13, color: '#5B21B6', fontWeight: 600 }}>
+            <div style={{ fontSize: 13, color: '#D8B4FE', fontWeight: 600 }}>
               当前重点突破目标：<strong>{weakestSkillMeta.name}</strong>
             </div>
           </div>
@@ -456,9 +455,9 @@ export const AiTutorView: React.FC<Props> = ({
               style={{
                 alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
                 maxWidth: '86%',
-                background: m.role === 'user' ? '#3B82F6' : '#FFFBEB',
-                color: m.role === 'user' ? '#FFFFFF' : '#1E293B',
-                border: m.role === 'user' ? 'none' : '2px solid #FDE68A',
+                background: m.role === 'user' ? '#2563EB' : '#1F1A2C',
+                color: '#F5EFE4',
+                border: m.role === 'user' ? 'none' : '1.5px solid #8C6229',
                 borderRadius: 18,
                 padding: '12px 15px',
                 fontSize: 14,

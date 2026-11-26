@@ -3,7 +3,7 @@ import { Award, Check, Gift, Heart, Lock, ShoppingBag, Sparkles, Trophy } from '
 import { EquipmentItem, LearnerProfile, PropItemId, SkinDef, SkinId } from '../types';
 import { EQUIPMENT_CATALOG, RANK_TIERS, getRankForStars } from '../data/rewards';
 import { ACHIEVEMENTS, KNOWLEDGE_CARDS, getBondLevel, getLevelFromXp } from '../data/rpgData';
-import { PROP_CATALOG, SKIN_CATALOG } from '../data/seasonData';
+import { MYSTERY_BOX_CATALOG, MysteryBoxDef, PROP_CATALOG, SKIN_CATALOG, getTotalBoxesInInventory } from '../data/seasonData';
 import { DetectiveAvatar, AvatarMood } from './DetectiveAvatar';
 import { ConfettiBurst } from './ConfettiBurst';
 import { sound } from '../utils/sound';
@@ -13,9 +13,10 @@ interface Props {
   onUnlockGear: (item: EquipmentItem) => void;
   onEquipGear: (item: EquipmentItem) => void;
   onUnlockSkin: (skin: SkinDef) => void;
+  onCraftSkin: (skin: SkinDef) => void;
   onEquipSkin: (skinId: SkinId) => void;
   onBuyProp: (propId: PropItemId, cost: number) => void;
-  onOpenMysteryBox: () => string;
+  onOpenMysteryBox: (boxId: MysteryBoxDef['id']) => string;
   onFeedPet: () => void;
   onClaimAchievement: (achId: string, rewardStars: number) => void;
 }
@@ -23,16 +24,16 @@ interface Props {
 const SLOT_LABELS: Record<EquipmentItem['slot'], string> = {
   hat: '头饰',
   eyes: '眼镜',
-  tool: '探案道具',
+  tool: '武器/法器',
   cape: '披风',
-  badge: '荣誉徽章',
+  badge: '徽章',
 };
 
 const RARITY_STYLES = {
-  R: { bg: '#EFF6FF', border: '#93C5FD', badge: 'pill-blue', label: 'R · 经典' },
-  SR: { bg: '#F5F3FF', border: '#C4B5FD', badge: 'pill-purple', label: 'SR · 史诗' },
-  SSR: { bg: '#FFFBEB', border: '#F59E0B', badge: 'pill-amber', label: 'SSR · 传说' },
-  MYTHIC: { bg: 'linear-gradient(135deg, #ECFEFF, #EDE9FE)', border: '#06B6D4', badge: 'pill-purple', label: 'MYTHIC · 神话' },
+  R: { border: '#3B82F6', badge: 'pill-blue', label: 'R · 魔法' },
+  SR: { border: '#A855F7', badge: 'pill-purple', label: 'SR · 史诗' },
+  SSR: { border: '#F59E0B', badge: 'pill-amber', label: 'SSR · 暗金传奇' },
+  MYTHIC: { border: '#06B6D4', badge: 'pill-purple', label: 'MYTHIC · 太古神话' },
 };
 
 export const WardrobeView: React.FC<Props> = ({
@@ -40,13 +41,14 @@ export const WardrobeView: React.FC<Props> = ({
   onUnlockGear,
   onEquipGear,
   onUnlockSkin,
+  onCraftSkin,
   onEquipSkin,
   onBuyProp,
   onOpenMysteryBox,
   onFeedPet,
   onClaimAchievement,
 }) => {
-  const [subTab, setSubTab] = useState<'skins' | 'props' | 'gear' | 'pet' | 'cards' | 'achievements'>('skins');
+  const [subTab, setSubTab] = useState<'boxes' | 'skins' | 'gear' | 'pet' | 'cards' | 'achievements'>('boxes');
   const [previewSkinId, setPreviewSkinId] = useState<SkinId>(profile.equippedSkinId);
   const [stageMood, setStageMood] = useState<AvatarMood>('happy');
   const [toastMsg, setToastMsg] = useState('');
@@ -59,9 +61,10 @@ export const WardrobeView: React.FC<Props> = ({
   const claimedSet = new Set(profile.claimedAchievementIds || []);
   const unlockedSkins = new Set(profile.unlockedSkinIds || ['skin_classic']);
   const inv = profile.inventory || {};
+  const shards = profile.skinShards || 0;
 
   const claimableCount = ACHIEVEMENTS.filter((a) => a.check(profile) && !claimedSet.has(a.id)).length;
-  const mysteryBoxCount = inv.item_mystery_box || 0;
+  const totalBoxes = getTotalBoxesInInventory(inv);
 
   const previewSkin = SKIN_CATALOG.find((s) => s.id === previewSkinId) || SKIN_CATALOG[0];
   const isPreviewOwned = unlockedSkins.has(previewSkin.id);
@@ -73,14 +76,14 @@ export const WardrobeView: React.FC<Props> = ({
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 1800);
     }
-    setTimeout(() => setToastMsg(''), 3600);
+    setTimeout(() => setToastMsg(''), 4200);
   };
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {showConfetti && <ConfettiBurst />}
 
-      {/* 阿探炫酷全息皮肤展示大舞台（支持任意皮肤一键放大试穿！） */}
+      {/* 暗黑全息英雄大舞台 */}
       <div
         className="skin-stage"
         style={{
@@ -91,7 +94,6 @@ export const WardrobeView: React.FC<Props> = ({
           flexWrap: 'wrap',
         }}
       >
-        {/* 左侧：全息聚光灯阿探大形象 */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 185, margin: '0 auto' }}>
           <DetectiveAvatar
             mood={toastMsg ? 'celebrating' : stageMood}
@@ -103,9 +105,9 @@ export const WardrobeView: React.FC<Props> = ({
           <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
             {(
               [
-                { m: 'happy', label: '😊 微笑' },
-                { m: 'thinking', label: '💡 思考' },
-                { m: 'celebrating', label: '⭐ 必杀欢呼' },
+                { m: 'happy', label: '😊 战备' },
+                { m: 'thinking', label: '💡 蓄力' },
+                { m: 'celebrating', label: '⚔️ 斩杀欢呼' },
               ] as { m: AvatarMood; label: string }[]
             ).map((btn) => (
               <button
@@ -117,8 +119,8 @@ export const WardrobeView: React.FC<Props> = ({
                   borderRadius: 999,
                   fontSize: 11,
                   fontWeight: 800,
-                  background: stageMood === btn.m ? '#38BDF8' : 'rgba(255,255,255,0.14)',
-                  color: stageMood === btn.m ? '#0F172A' : '#E2E8F0',
+                  background: stageMood === btn.m ? '#F59E0B' : 'rgba(255,255,255,0.12)',
+                  color: stageMood === btn.m ? '#1C1008' : '#E2E8F0',
                 }}
               >
                 {btn.label}
@@ -127,27 +129,25 @@ export const WardrobeView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 右侧：当前舞台试穿皮肤信息 + 快捷装备/购买 + 资产 */}
         <div style={{ flex: 1, minWidth: 250, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span className="pill" style={{ background: '#FACC15', color: '#713F12' }}>
-              Lv.{lvl.level} · {rank.current.badge} {rank.current.title}
-            </span>
-            <span className="pill" style={{ background: 'rgba(56,189,248,0.22)', color: '#E0F2FE', border: '1px solid #38BDF8' }}>
-              {isPreviewEquipped ? '✅ 当前穿戴中' : isPreviewOwned ? '👀 试穿预览（已拥有）' : '👀 炫酷试穿预览中'}
+            <span className="pill pill-amber">Lv.{lvl.level} · {rank.current.badge} {rank.current.title}</span>
+            <span className="pill pill-purple">🧩 皮肤碎片：{shards} 枚</span>
+            <span className="pill pill-blue">
+              {isPreviewEquipped ? '✅ 穿戴中' : isPreviewOwned ? '👀 试穿（已拥有）' : '👀 全息试穿中'}
             </span>
           </div>
 
           <div>
-            <h2 style={{ margin: '2px 0', fontSize: 24, fontWeight: 900, color: '#FFFFFF' }}>
+            <h2 style={{ margin: '2px 0', fontSize: 23, fontWeight: 900, color: '#FDE68A' }}>
               {previewSkin.emoji} {previewSkin.name}
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#CBD5E1', fontWeight: 600 }}>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#D6C7B2', fontWeight: 600 }}>
               {previewSkin.description}
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {isPreviewOwned ? (
               <button
                 className={isPreviewEquipped ? 'btn-mint' : 'btn-primary'}
@@ -155,43 +155,48 @@ export const WardrobeView: React.FC<Props> = ({
                 onClick={() => {
                   sound.playUnlock();
                   onEquipSkin(previewSkin.id);
-                  popToast(`阿探正式换上了【${previewSkin.name}】！全场景同步生效！`, true);
+                  popToast(`阿探正式换装【${previewSkin.name}】！全地牢同步生效！`, true);
                 }}
               >
-                {isPreviewEquipped ? <><Check size={16} /> 已穿戴在阿探身上</> : <><Sparkles size={16} /> 立即换上这套皮肤！</>}
+                {isPreviewEquipped ? <><Check size={16} /> 已出战穿戴</> : <><Sparkles size={16} /> 换上这套皮肤出战！</>}
               </button>
             ) : previewSkin.passOnly ? (
-              <span className="pill" style={{ background: 'rgba(139,92,246,0.3)', color: '#EDE9FE', border: '1px solid #A78BFA', padding: '8px 14px', fontSize: 13 }}>
+              <span className="pill pill-purple" style={{ padding: '7px 12px', fontSize: 12.5 }}>
                 🏆 {previewSkin.passTierHint}
               </span>
             ) : (
-              <button
-                className="btn-primary"
-                disabled={profile.stars < previewSkin.cost}
-                onClick={() => {
-                  sound.playCaseSolved();
-                  onUnlockSkin(previewSkin);
-                  popToast(`恭喜解锁皮肤【${previewSkin.name}】并已穿戴！`, true);
-                }}
-              >
-                {profile.stars >= previewSkin.cost
-                  ? `⭐ ${previewSkin.cost} 立刻买下并换上！`
-                  : <><Lock size={15} /> 还差 {previewSkin.cost - profile.stars} ⭐ 解锁</>}
-              </button>
+              <>
+                <button
+                  className="btn-primary"
+                  disabled={profile.stars < previewSkin.cost}
+                  onClick={() => {
+                    sound.playCaseSolved();
+                    onUnlockSkin(previewSkin);
+                    popToast(`解锁皮肤【${previewSkin.name}】并已穿戴！`, true);
+                  }}
+                >
+                  {profile.stars >= previewSkin.cost
+                    ? `⭐ ${previewSkin.cost} 购买`
+                    : <><Lock size={14} /> 需 {previewSkin.cost} ⭐</>}
+                </button>
+                {previewSkin.shardCost && (
+                  <button
+                    className="btn-sky"
+                    disabled={shards < previewSkin.shardCost}
+                    onClick={() => {
+                      sound.playCaseSolved();
+                      onCraftSkin(previewSkin);
+                      popToast(`🧩 碎片保底合成成功！获得【${previewSkin.name}】！`, true);
+                    }}
+                  >
+                    🧩 {previewSkin.shardCost} 碎片合成（已有 {shards}）
+                  </button>
+                )}
+              </>
             )}
 
-            <div style={{ display: 'flex', gap: 8 }}>
-              <span className="pill" style={{ background: 'rgba(251,191,36,0.2)', color: '#FEF08A', border: '1px solid #FBBF24', padding: '6px 12px', fontSize: 14 }}>
-                ⭐ {profile.stars}
-              </span>
-              <span className="pill" style={{ background: 'rgba(251,146,60,0.2)', color: '#FED7AA', border: '1px solid #FB923C', padding: '6px 12px', fontSize: 14 }}>
-                🦴 {profile.treats || 0}
-              </span>
-            </div>
-          </div>
-
-          <div style={{ fontSize: 12, color: '#94A3B8', fontWeight: 600 }}>
-            💡 点击下方任意皮肤卡片都能在聚光灯大舞台上免费放大试穿，还可以去「穿戴装备」叠戴头盔、墨镜和光剑！
+            <span className="pill pill-amber" style={{ fontSize: 13.5 }}>⭐ {profile.stars}</span>
+            <span className="pill pill-orange" style={{ fontSize: 13.5 }}>🦴 {profile.treats || 0}</span>
           </div>
         </div>
       </div>
@@ -200,28 +205,29 @@ export const WardrobeView: React.FC<Props> = ({
         <div
           className="card fade-in"
           style={{
-            background: '#FEF3C7',
+            background: 'linear-gradient(90deg, rgba(234,88,12,0.32), rgba(217,119,6,0.28))',
             borderColor: '#F59E0B',
             textAlign: 'center',
             fontWeight: 900,
             fontSize: 15,
-            color: '#92400E',
+            color: '#FEF08A',
             padding: '12px 16px',
+            boxShadow: '0 0 22px rgba(245, 158, 11, 0.35)',
           }}
         >
-          🎉 {toastMsg}
+          ✨ {toastMsg}
         </div>
       )}
 
-      {/* 6 大基地子页签 */}
+      {/* 6 大基地页签 */}
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
         {(
           [
-            { id: 'skins', label: `🎨 全身皮肤 (${unlockedSkins.size}/${SKIN_CATALOG.length})` },
-            { id: 'props', label: `🎒 道具与盲盒 ${mysteryBoxCount > 0 ? `(🎁${mysteryBoxCount}!)` : ''}` },
-            { id: 'gear', label: `🕵️ 穿戴装备 (${profile.unlockedGearIds.length}/${EQUIPMENT_CATALOG.length})` },
+            { id: 'boxes', label: `🎁 4 档暗黑盲盒 & 道具 ${totalBoxes > 0 ? `(待拆${totalBoxes}!)` : ''}` },
+            { id: 'skins', label: `🎨 英雄皮肤 (${unlockedSkins.size}/${SKIN_CATALOG.length})` },
+            { id: 'gear', label: `⚔️ 传奇装备 (${profile.unlockedGearIds.length}/${EQUIPMENT_CATALOG.length})` },
             { id: 'pet', label: '🦴 喂养阿探' },
-            { id: 'cards', label: `🃏 口诀图鉴 (${collectedSet.size}/${KNOWLEDGE_CARDS.length})` },
+            { id: 'cards', label: `🃏 符文图鉴 (${collectedSet.size}/${KNOWLEDGE_CARDS.length})` },
             { id: 'achievements', label: `🏆 成就 ${claimableCount > 0 ? `(可领${claimableCount}!)` : ''}` },
           ] as { id: typeof subTab; label: string }[]
         ).map((t) => (
@@ -229,11 +235,11 @@ export const WardrobeView: React.FC<Props> = ({
             key={t.id}
             className="btn-soft"
             style={{
-              background: subTab === t.id ? '#F59E0B' : '#FFFFFF',
-              color: subTab === t.id ? '#FFFFFF' : '#475569',
-              borderColor: subTab === t.id ? '#D97706' : '#E2E8F0',
+              background: subTab === t.id ? '#DC2626' : '#221C2C',
+              color: subTab === t.id ? '#FEF3C7' : '#D6C7B2',
+              borderColor: subTab === t.id ? '#F59E0B' : '#4A3D58',
               fontSize: 13,
-              padding: '8px 13px',
+              padding: '8px 12px',
             }}
             onClick={() => setSubTab(t.id)}
           >
@@ -242,15 +248,137 @@ export const WardrobeView: React.FC<Props> = ({
         ))}
       </div>
 
-      {/* Tab 1: 8 款全身限定皮肤（点击任意卡片可直接在上方聚光灯舞台试穿！） */}
+      {/* ================= Tab 1: 4 档暗黑盲盒抽卡池 + 5 种实战道具 ================= */}
+      {subTab === 'boxes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 14 }}>
+            {MYSTERY_BOX_CATALOG.map((box) => {
+              const ownedQty =
+                (inv[box.id] || 0) + (box.id === 'box_bronze' ? inv.item_mystery_box || 0 : 0);
+              const canBuy = profile.stars >= box.cost;
+              const st = RARITY_STYLES[box.rarity];
+
+              return (
+                <div
+                  key={box.id}
+                  className="card"
+                  style={{
+                    borderColor: box.borderColor,
+                    padding: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    background: 'linear-gradient(155deg, #211A2B, #130F1A)',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 34 }}>{box.emoji}</span>
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <span className={`pill ${st.badge}`}>{st.label}</span>
+                        <span className="pill pill-amber">持有：{ownedQty}</span>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: '#FDE68A' }}>{box.name}</div>
+                    <div style={{ fontSize: 13, color: '#D6C7B2', fontWeight: 600, marginTop: 4 }}>{box.tagline}</div>
+                    <div style={{ fontSize: 12, color: '#93C5FD', marginTop: 6, background: '#110E18', padding: '7px 10px', borderRadius: 10, border: '1px solid #2D263B' }}>
+                      🎲 {box.oddsText}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn-primary"
+                      style={{ flex: 1.2, padding: '9px 10px', fontSize: 13.5 }}
+                      disabled={ownedQty <= 0}
+                      onClick={() => {
+                        sound.playCaseSolved();
+                        const res = onOpenMysteryBox(box.id);
+                        popToast(`${box.emoji} 拆开【${box.name}】：${res}`, true);
+                      }}
+                    >
+                      <Gift size={15} /> 拆 1 个
+                    </button>
+                    <button
+                      className="btn-soft"
+                      style={{ flex: 1, padding: '9px 8px', fontSize: 13 }}
+                      disabled={!canBuy}
+                      onClick={() => {
+                        sound.playClueFound();
+                        onBuyProp(box.id, box.cost);
+                        popToast(`购入 ${box.emoji} ${box.name} ×1，快点“拆 1 个”看爆什么！`);
+                      }}
+                    >
+                      ⭐ {box.cost} 买 1 个
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 5 种实战道具补给 */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#FDE68A' }}>
+              🎒 实战药水与破盾道具补给站
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+              {PROP_CATALOG.map((prop) => {
+                const qty = inv[prop.id] || 0;
+                const canBuy = profile.stars >= prop.cost;
+                return (
+                  <div
+                    key={prop.id}
+                    style={{
+                      padding: 14,
+                      borderRadius: 14,
+                      background: '#120F18',
+                      border: `1.5px solid ${qty > 0 ? prop.accentColor : '#332940'}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                        <span style={{ fontSize: 28 }}>{prop.emoji}</span>
+                        <span className="pill pill-amber">背包：{qty}</span>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: '#F5EFE4' }}>{prop.name}</div>
+                      <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--ink-muted)' }}>{prop.description}</p>
+                    </div>
+                    <button
+                      className="btn-soft"
+                      style={{ width: '100%', padding: '8px 10px', fontSize: 13 }}
+                      disabled={!canBuy}
+                      onClick={() => {
+                        sound.playUnlock();
+                        onBuyProp(prop.id, prop.cost);
+                        popToast(`购入 ${prop.emoji} ${prop.name} ×1！战斗中可直接点击释放！`);
+                      }}
+                    >
+                      <ShoppingBag size={14} /> {canBuy ? `⭐ ${prop.cost} 补货 1 个` : `还差 ${prop.cost - profile.stars} ⭐`}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= Tab 2: 8 款英雄皮肤（支持星星买 & 碎片合成 & 点击试穿） ================= */}
       {subTab === 'skins' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(235px, 1fr))', gap: 14 }}>
           {SKIN_CATALOG.map((skin) => {
             const owned = unlockedSkins.has(skin.id);
             const equipped = profile.equippedSkinId === skin.id;
-            const isSelectedOnStage = previewSkinId === skin.id;
+            const isSelected = previewSkinId === skin.id;
             const st = RARITY_STYLES[skin.rarity];
             const canBuy = !skin.passOnly && profile.stars >= skin.cost;
+            const canCraft = Boolean(skin.shardCost && shards >= skin.shardCost);
 
             return (
               <div
@@ -262,10 +390,9 @@ export const WardrobeView: React.FC<Props> = ({
                 }}
                 style={{
                   cursor: 'pointer',
-                  padding: 16,
-                  background: equipped ? '#ECFDF5' : st.bg,
-                  borderColor: isSelectedOnStage ? '#0284C7' : equipped ? '#10B981' : st.border,
-                  boxShadow: isSelectedOnStage ? '0 0 0 3px rgba(56, 189, 248, 0.45)' : undefined,
+                  padding: 15,
+                  borderColor: isSelected ? '#FACC15' : equipped ? '#10B981' : st.border,
+                  boxShadow: isSelected ? '0 0 18px rgba(250, 204, 21, 0.35)' : undefined,
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
@@ -276,9 +403,9 @@ export const WardrobeView: React.FC<Props> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <span className={`pill ${st.badge}`}>{st.label}</span>
                     {equipped ? (
-                      <span className="pill pill-green">穿戴中 ✓</span>
-                    ) : isSelectedOnStage ? (
-                      <span className="pill pill-blue">👀 舞台试穿中</span>
+                      <span className="pill pill-green">出战中 ✓</span>
+                    ) : isSelected ? (
+                      <span className="pill pill-amber">👀 试穿中</span>
                     ) : null}
                   </div>
                   <div
@@ -286,20 +413,17 @@ export const WardrobeView: React.FC<Props> = ({
                       display: 'flex',
                       justifyContent: 'center',
                       padding: '8px 0',
-                      borderRadius: 16,
-                      background:
-                        skin.id === 'skin_mecha' || skin.id === 'skin_ninja' || skin.id === 'skin_astronaut' || skin.id === 'skin_wizard'
-                          ? 'linear-gradient(145deg, #1E1B4B, #0F172A)'
-                          : 'rgba(255,255,255,0.55)',
+                      borderRadius: 14,
+                      background: 'radial-gradient(circle, #2A1F3D 0%, #100D16 100%)',
                       margin: '4px 0 8px',
                     }}
                   >
                     <DetectiveAvatar mood="happy" skinId={skin.id} equippedGear={profile.equippedGear} size={114} animated={false} />
                   </div>
-                  <div style={{ fontWeight: 900, fontSize: 16, textAlign: 'center' }}>
+                  <div style={{ fontWeight: 900, fontSize: 16, textAlign: 'center', color: '#FDE68A' }}>
                     {skin.emoji} {skin.name}
                   </div>
-                  <p style={{ margin: '4px 0 0', fontSize: 12, color: '#475569', textAlign: 'center', fontWeight: 600 }}>
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ink-muted)', textAlign: 'center' }}>
                     {skin.description}
                   </p>
                 </div>
@@ -307,23 +431,23 @@ export const WardrobeView: React.FC<Props> = ({
                 {owned ? (
                   <button
                     className={equipped ? 'btn-mint' : 'btn-primary'}
-                    style={{ width: '100%', padding: '9px 12px', fontSize: 14 }}
+                    style={{ width: '100%', padding: '9px 10px', fontSize: 13.5 }}
                     disabled={equipped}
                     onClick={(e) => {
                       e.stopPropagation();
                       sound.playUnlock();
                       setPreviewSkinId(skin.id);
                       onEquipSkin(skin.id);
-                      popToast(`阿探换上了超酷皮肤【${skin.name}】！`, true);
+                      popToast(`阿探换上皮肤【${skin.name}】出战！`, true);
                     }}
                   >
-                    {equipped ? <><Check size={15} /> 正在穿戴</> : <><Sparkles size={15} /> 换上这套皮肤</>}
+                    {equipped ? <><Check size={14} /> 正在穿戴</> : <><Sparkles size={14} /> 换上这套皮肤</>}
                   </button>
                 ) : skin.passOnly ? (
                   <button
                     type="button"
                     className="btn-soft"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: 12, color: '#6D28D9', borderColor: '#C4B5FD' }}
+                    style={{ width: '100%', padding: '8px 8px', fontSize: 12 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       sound.playClueFound();
@@ -333,20 +457,38 @@ export const WardrobeView: React.FC<Props> = ({
                     👀 试穿 · {skin.passTierHint}
                   </button>
                 ) : (
-                  <button
-                    className="btn-primary"
-                    style={{ width: '100%', padding: '9px 12px', fontSize: 14 }}
-                    disabled={!canBuy}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      sound.playCaseSolved();
-                      setPreviewSkinId(skin.id);
-                      onUnlockSkin(skin);
-                      popToast(`恭喜解锁限定皮肤【${skin.name}】并已自动穿戴！`, true);
-                    }}
-                  >
-                    {canBuy ? `⭐ ${skin.cost} 购买并穿戴` : <><Lock size={14} /> 还差 {skin.cost - profile.stars} ⭐</>}
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <button
+                      className="btn-primary"
+                      style={{ width: '100%', padding: '8px 10px', fontSize: 13 }}
+                      disabled={!canBuy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sound.playCaseSolved();
+                        setPreviewSkinId(skin.id);
+                        onUnlockSkin(skin);
+                        popToast(`解锁皮肤【${skin.name}】！`, true);
+                      }}
+                    >
+                      {canBuy ? `⭐ ${skin.cost} 购买` : <><Lock size={13} /> 需 {skin.cost} ⭐</>}
+                    </button>
+                    {skin.shardCost && (
+                      <button
+                        className="btn-sky"
+                        style={{ width: '100%', padding: '7px 10px', fontSize: 12 }}
+                        disabled={!canCraft}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sound.playCaseSolved();
+                          setPreviewSkinId(skin.id);
+                          onCraftSkin(skin);
+                          popToast(`🧩 消耗 ${skin.shardCost} 碎片合成【${skin.name}】！`, true);
+                        }}
+                      >
+                        🧩 {skin.shardCost} 碎片保底合成（已有 {shards}）
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             );
@@ -354,108 +496,7 @@ export const WardrobeView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Tab 2: 实战道具背包 & 神秘盲盒拆箱 */}
-      {subTab === 'props' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* 盲盒拆箱特区 */}
-          <div
-            className="card"
-            style={{
-              background: 'linear-gradient(135deg, #FDF2F8, #FEF3C7)',
-              borderColor: '#EC4899',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 14,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: 44 }}>🎁</div>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#9D174D' }}>
-                  神探神秘盲盒抽奖机（当前拥有 {mysteryBoxCount} 个）
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#831843' }}>
-                  拆开随机爆出 30~90 侦探星、智慧狗粮、透视仪、排除剪刀、Boss 暴击弹，欧皇更有双倍大礼！
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                className="btn-primary"
-                disabled={mysteryBoxCount <= 0}
-                onClick={() => {
-                  sound.playCaseSolved();
-                  const rewardText = onOpenMysteryBox();
-                  popToast(`🎁 拆开盲盒大爆奖：${rewardText}`, true);
-                }}
-              >
-                <Gift size={17} /> 拆开 1 个盲盒！
-              </button>
-              <button
-                className="btn-soft"
-                disabled={profile.stars < 35}
-                onClick={() => {
-                  sound.playClueFound();
-                  onBuyProp('item_mystery_box', 35);
-                  popToast('购买了 1 个神探神秘盲盒，快拆开看看吧！');
-                }}
-              >
-                ⭐ 35 买 1 个
-              </button>
-            </div>
-          </div>
-
-          {/* 6 种道具卡片 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-            {PROP_CATALOG.map((prop) => {
-              const qty = inv[prop.id] || 0;
-              const canBuy = profile.stars >= prop.cost;
-              return (
-                <div
-                  key={prop.id}
-                  className="card"
-                  style={{
-                    padding: 16,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: 10,
-                    borderColor: qty > 0 ? prop.accentColor : '#E2E8F0',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <span style={{ fontSize: 32 }}>{prop.emoji}</span>
-                      <span className="pill pill-amber">背包拥有：{qty} 个</span>
-                    </div>
-                    <div style={{ fontSize: 16, fontWeight: 900 }}>{prop.name}</div>
-                    <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-muted)', fontWeight: 600 }}>
-                      {prop.description}
-                    </p>
-                  </div>
-
-                  <button
-                    className="btn-soft"
-                    style={{ width: '100%', padding: '9px 12px', fontSize: 14 }}
-                    disabled={!canBuy}
-                    onClick={() => {
-                      sound.playUnlock();
-                      onBuyProp(prop.id, prop.cost);
-                      popToast(`购入 ${prop.emoji} ${prop.name} ×1！做题或打 Boss 时可直接点击使用！`);
-                    }}
-                  >
-                    <ShoppingBag size={15} /> {canBuy ? `⭐ ${prop.cost} 补货 1 个` : `还差 ${prop.cost - profile.stars} ⭐`}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: 16 件穿戴装备 */}
+      {/* ================= Tab 3: 16 件传奇穿戴装备 ================= */}
       {subTab === 'gear' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(225px, 1fr))', gap: 14 }}>
@@ -469,47 +510,46 @@ export const WardrobeView: React.FC<Props> = ({
                   key={item.id}
                   className="card"
                   style={{
-                    padding: 16,
+                    padding: 15,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     gap: 10,
-                    borderColor: equipped ? '#10B981' : unlocked ? '#FCD34D' : '#E2E8F0',
-                    background: equipped ? '#ECFDF5' : '#FFFFFF',
+                    borderColor: equipped ? '#10B981' : unlocked ? '#D97706' : '#3D3124',
                   }}
                 >
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{ fontSize: 32 }}>{item.emoji}</span>
+                      <span style={{ fontSize: 30 }}>{item.emoji}</span>
                       <span className="pill pill-blue">{SLOT_LABELS[item.slot]}</span>
                     </div>
-                    <div style={{ fontWeight: 900, fontSize: 16 }}>{item.name}</div>
-                    <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-muted)' }}>{item.description}</p>
+                    <div style={{ fontWeight: 900, fontSize: 15.5, color: '#FDE68A' }}>{item.name}</div>
+                    <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--ink-muted)' }}>{item.description}</p>
                   </div>
 
                   {unlocked ? (
                     <button
                       className={equipped ? 'btn-mint' : 'btn-soft'}
-                      style={{ width: '100%', padding: '9px 12px', fontSize: 14 }}
+                      style={{ width: '100%', padding: '8px 10px', fontSize: 13.5 }}
                       onClick={() => {
                         sound.playClueFound();
                         onEquipGear(item);
                       }}
                     >
-                      {equipped ? <><Check size={16} /> 已穿戴（点击卸下）</> : <><Sparkles size={15} /> 给阿探戴上</>}
+                      {equipped ? <><Check size={15} /> 已装备（点击卸下）</> : <><Sparkles size={14} /> 装备上阵</>}
                     </button>
                   ) : (
                     <button
                       className="btn-primary"
-                      style={{ width: '100%', padding: '9px 12px', fontSize: 14 }}
+                      style={{ width: '100%', padding: '8px 10px', fontSize: 13.5 }}
                       disabled={!canAfford}
                       onClick={() => {
                         sound.playUnlock();
                         onUnlockGear(item);
-                        popToast(`解锁装备【${item.name}】并已戴在阿探身上！`);
+                        popToast(`打造装备【${item.name}】成功！`);
                       }}
                     >
-                      {canAfford ? `⭐ ${item.cost} 解锁并穿戴` : <><Lock size={14} /> 还差 {item.cost - profile.stars} ⭐</>}
+                      {canAfford ? `⭐ ${item.cost} 打造` : <><Lock size={13} /> 需 {item.cost} ⭐（白银箱可爆）</>}
                     </button>
                   )}
                 </div>
@@ -518,7 +558,7 @@ export const WardrobeView: React.FC<Props> = ({
           </div>
 
           <div className="card">
-            <h3 style={{ margin: '0 0 12px', fontSize: 17, fontWeight: 900 }}>🏅 神探段位晋升之路</h3>
+            <h3 style={{ margin: '0 0 12px', fontSize: 17, fontWeight: 900, color: '#FDE68A' }}>🏅 庇护所段位晋升之路</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 10 }}>
               {RANK_TIERS.map((tier) => {
                 const reached = profile.totalStarsEarned >= tier.minStars;
@@ -527,16 +567,16 @@ export const WardrobeView: React.FC<Props> = ({
                     key={tier.level}
                     style={{
                       padding: 12,
-                      borderRadius: 14,
+                      borderRadius: 12,
                       textAlign: 'center',
-                      background: reached ? '#FEF3C7' : '#F8FAFC',
-                      border: `2px solid ${reached ? '#F59E0B' : '#E2E8F0'}`,
-                      opacity: reached ? 1 : 0.65,
+                      background: reached ? 'rgba(217, 119, 6, 0.22)' : '#120F18',
+                      border: `2px solid ${reached ? '#F59E0B' : '#332940'}`,
+                      opacity: reached ? 1 : 0.6,
                     }}
                   >
                     <div style={{ fontSize: 26 }}>{tier.badge}</div>
-                    <div style={{ fontWeight: 900, fontSize: 14, marginTop: 4 }}>{tier.title}</div>
-                    <div style={{ fontSize: 12, color: '#92400E', fontWeight: 700 }}>{tier.minStars} 累计⭐</div>
+                    <div style={{ fontWeight: 900, fontSize: 13.5, marginTop: 4, color: '#FDE68A' }}>{tier.title}</div>
+                    <div style={{ fontSize: 12, color: '#B6A995', fontWeight: 700 }}>{tier.minStars} 累计⭐</div>
                   </div>
                 );
               })}
@@ -551,15 +591,15 @@ export const WardrobeView: React.FC<Props> = ({
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
             <DetectiveAvatar mood={toastMsg ? 'celebrating' : 'happy'} skinId={profile.equippedSkinId} equippedGear={profile.equippedGear} size={140} />
           </div>
-          <h3 style={{ margin: '4px 0', fontSize: 21, fontWeight: 900 }}>
+          <h3 style={{ margin: '4px 0', fontSize: 21, fontWeight: 900, color: '#FDE68A' }}>
             <Heart size={20} fill="#F43F5E" color="#E11D48" style={{ verticalAlign: 'middle', marginRight: 6 }} />
-            默契等级 Lv.{bond.level} · {bond.title}
+            战宠默契 Lv.{bond.level} · {bond.title}
           </h3>
-          <p style={{ margin: '6px auto 14px', maxWidth: 460, fontSize: 14, color: 'var(--ink-muted)', fontWeight: 600 }}>
-            通过赛季通行证、打赢 Boss 和完成模拟卷都能赢取「🦴 智慧狗粮」！喂给阿探能增加亲密度与经验值！
+          <p style={{ margin: '6px auto 14px', maxWidth: 460, fontSize: 14, color: 'var(--ink-muted)' }}>
+            开盲盒、打赢世界 BOSS 和完成试炼卷都能赢取「🦴 智慧狗粮」，喂给阿探提升默契和经验！
           </p>
           <div style={{ maxWidth: 420, margin: '0 auto 16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#92400E', marginBottom: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#FDE68A', marginBottom: 4 }}>
               <span>当前亲密度：{profile.bondPoints || 0}</span>
               <span>目标：{bond.nextNeed}</span>
             </div>
@@ -579,15 +619,15 @@ export const WardrobeView: React.FC<Props> = ({
             onClick={() => {
               sound.playUnlock();
               onFeedPet();
-              popToast('阿探开心地摇尾巴：“汪呜！谢谢喂我智慧狗粮，亲密度 +15、经验 +20！” 💛');
+              popToast('阿探开心地摇尾巴：“汪呜！战宠亲密度 +15、经验 +20 XP！” 💛');
             }}
           >
-            🦴 喂一块智慧狗粮（剩余 {profile.treats || 0} 块，亲密度 +15）
+            🦴 喂一块智慧狗粮（剩余 {profile.treats || 0} 块）
           </button>
         </div>
       )}
 
-      {/* Tab 5: 口诀卡牌图鉴 */}
+      {/* Tab 5: 符文图鉴 */}
       {subTab === 'cards' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {KNOWLEDGE_CARDS.map((card) => {
@@ -598,10 +638,9 @@ export const WardrobeView: React.FC<Props> = ({
                 key={card.id}
                 className="card"
                 style={{
-                  padding: 16,
-                  background: owned ? st.bg : '#F8FAFC',
-                  borderColor: owned ? st.border : '#CBD5E1',
-                  opacity: owned ? 1 : 0.72,
+                  padding: 15,
+                  borderColor: owned ? st.border : '#332940',
+                  opacity: owned ? 1 : 0.65,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
@@ -609,19 +648,19 @@ export const WardrobeView: React.FC<Props> = ({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 28 }}>{owned ? card.emoji : '🔒'}</span>
-                  <span className={`pill ${owned ? st.badge : 'pill-amber'}`}>{owned ? st.label : '待点亮'}</span>
+                  <span className={`pill ${owned ? st.badge : 'pill-amber'}`}>{owned ? st.label : '待掉落'}</span>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: '#0F172A' }}>{card.title}</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#FDE68A' }}>{card.title}</div>
                 {owned ? (
                   <>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', lineHeight: 1.55 }}>{card.rule}</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', background: 'rgba(255,255,255,0.8)', padding: '6px 9px', borderRadius: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#F5EFE4', lineHeight: 1.55 }}>{card.rule}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#93C5FD', background: '#110E18', padding: '6px 9px', borderRadius: 9 }}>
                       例：{card.example}
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>
-                    去完成对应考点的探案案件或击败守关 Boss，即可永久点亮这张稀有口诀卡！
+                  <div style={{ fontSize: 13, color: 'var(--ink-muted)' }}>
+                    击杀对应考点的小怪或世界 BOSS 即可掉落并永久点亮这张符文卡！
                   </div>
                 )}
               </div>
@@ -630,7 +669,7 @@ export const WardrobeView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Tab 6: 成就勋章墙 */}
+      {/* Tab 6: 成就勋章 */}
       {subTab === 'achievements' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {ACHIEVEMENTS.map((ach) => {
@@ -641,41 +680,41 @@ export const WardrobeView: React.FC<Props> = ({
                 key={ach.id}
                 className="card"
                 style={{
-                  padding: 16,
+                  padding: 15,
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   gap: 10,
-                  background: claimed ? '#ECFDF5' : unlocked ? '#FFFBEB' : '#FFFFFF',
-                  borderColor: claimed ? '#34D399' : unlocked ? '#F59E0B' : '#E2E8F0',
+                  borderColor: claimed ? '#10B981' : unlocked ? '#F59E0B' : '#332940',
                 }}
               >
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <span style={{ fontSize: 28 }}>{ach.emoji}</span>
                     <span className={`pill ${claimed ? 'pill-green' : unlocked ? 'pill-orange' : 'pill-amber'}`}>
-                      {claimed ? '已领取 ✓' : `⭐ +${ach.rewardStars}`}
+                      {claimed ? '已领取 ✓' : `⭐ +${Math.round(ach.rewardStars * 0.6)}`}
                     </span>
                   </div>
-                  <div style={{ fontWeight: 900, fontSize: 16 }}>{ach.title}</div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: '#FDE68A' }}>{ach.title}</div>
                   <div style={{ fontSize: 13, color: 'var(--ink-muted)', marginTop: 3 }}>{ach.description}</div>
                 </div>
 
                 {unlocked && !claimed ? (
                   <button
                     className="btn-primary"
-                    style={{ width: '100%', padding: '9px 12px', fontSize: 14 }}
+                    style={{ width: '100%', padding: '8px 12px', fontSize: 13.5 }}
                     onClick={() => {
+                      const amt = Math.round(ach.rewardStars * 0.6);
                       sound.playCaseSolved();
-                      onClaimAchievement(ach.id, ach.rewardStars);
-                      popToast(`领取成就【${ach.title}】奖励 ⭐+${ach.rewardStars}！`, true);
+                      onClaimAchievement(ach.id, amt);
+                      popToast(`领取成就【${ach.title}】奖励 ⭐+${amt}！`, true);
                     }}
                   >
-                    <Trophy size={15} /> 领取 ⭐ +{ach.rewardStars} 奖励！
+                    <Trophy size={15} /> 领取 ⭐ +{Math.round(ach.rewardStars * 0.6)}！
                   </button>
                 ) : (
-                  <div style={{ fontSize: 12, fontWeight: 800, color: claimed ? '#059669' : '#94A3B8', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <Award size={14} /> {claimed ? '荣誉已收入囊中' : '继续探案即可解锁'}
+                  <div style={{ fontSize: 12, fontWeight: 800, color: claimed ? '#34D399' : '#786D5F', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Award size={14} /> {claimed ? '荣誉已入库' : '继续讨伐即可解锁'}
                   </div>
                 )}
               </div>

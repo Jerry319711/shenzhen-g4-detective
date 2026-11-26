@@ -1,4 +1,4 @@
-const CACHE_NAME = 'detective-g4-v5';
+const CACHE_NAME = 'detective-g4-v6';
 const STATIC_ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (event) => {

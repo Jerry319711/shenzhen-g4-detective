@@ -161,24 +161,24 @@ export const ParentDashboard: React.FC<Props> = ({
       {/* 顶部核心指标 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--ink-muted)', fontWeight: 700 }}>累计破案次数</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: '#0F172A' }}>{totalAttempts} 次</div>
-          <div style={{ fontSize: 12, color: '#059669', fontWeight: 700 }}>一次完美率：{totalAttempts ? Math.round((perfectTotal / totalAttempts) * 100) : 0}%</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-muted)', fontWeight: 700 }}>累计斩杀怪物</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: '#FDE68A' }}>{totalAttempts} 次</div>
+          <div style={{ fontSize: 12, color: '#6EE7B7', fontWeight: 700 }}>一次完美率：{totalAttempts ? Math.round((perfectTotal / totalAttempts) * 100) : 0}%</div>
         </div>
         <div className="card" style={{ padding: 16 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-muted)', fontWeight: 700 }}>🔍 粗心型失误</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: '#D97706' }}>{carelessTotal} 次</div>
-          <div style={{ fontSize: 12, color: '#92400E', fontWeight: 600 }}>漏看线索词或作答过快</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: '#FBBF24' }}>{carelessTotal} 次</div>
+          <div style={{ fontSize: 12, color: '#FDBA74', fontWeight: 600 }}>漏看线索词或作答过快</div>
         </div>
         <div className="card" style={{ padding: 16 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-muted)', fontWeight: 700 }}>🧩 概念/逻辑卡壳</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: '#7C3AED' }}>{conceptTotal} 次</div>
-          <div style={{ fontSize: 12, color: '#5B21B6', fontWeight: 600 }}>需借助画图与分步巩固</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: '#C084FC' }}>{conceptTotal} 次</div>
+          <div style={{ fontSize: 12, color: '#D8B4FE', fontWeight: 600 }}>需借助画图与分步巩固</div>
         </div>
         <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--ink-muted)', fontWeight: 700 }}>已攻克案件</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: '#2563EB' }}>{profile.solvedCaseIds.length} 宗</div>
-          <div style={{ fontSize: 12, color: '#1D4ED8', fontWeight: 600 }}>连续学习 {profile.streakDays} 天</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-muted)', fontWeight: 700 }}>已攻克题库</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: '#60A5FA' }}>{profile.solvedCaseIds.length} / 150</div>
+          <div style={{ fontSize: 12, color: '#93C5FD', fontWeight: 600 }}>连续试炼 {profile.streakDays} 天</div>
         </div>
       </div>
 

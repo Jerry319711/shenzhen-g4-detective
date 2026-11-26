@@ -14,10 +14,10 @@ export function getTodayStr(): string {
 export function createDefaultProfile(): LearnerProfile {
   return {
     nickname: 'Henry',
-    stars: 35,
-    totalStarsEarned: 35,
-    xp: 20,
-    treats: 3, // 新手赠送 3 块智慧狗粮，马上体验喂养阿探的乐趣！
+    stars: 10, // 新手起步 10⭐，需认真探案攒星买皮肤与开盲盒！
+    totalStarsEarned: 10,
+    xp: 0,
+    treats: 2,
     bondPoints: 10,
     currentCombo: 0,
     maxCombo: 0,
@@ -32,15 +32,15 @@ export function createDefaultProfile(): LearnerProfile {
     equippedGear: { tool: 'gear_magnifier_basic' },
     unlockedSkinIds: ['skin_classic'],
     equippedSkinId: 'skin_classic',
+    skinShards: 0,
     inventory: {
-      item_scanner: 2,
-      item_fifty: 2,
+      item_scanner: 1,
+      item_fifty: 1,
       item_double_star: 1,
       item_boss_bomb: 1,
-      item_lucky_clover: 1,
-      item_mystery_box: 1, // 入职先送 1 个盲盒让孩子马上拆！
+      box_bronze: 1, // 入职送 1 个青铜探案盲盒体验拆盲盒的快乐！
     },
-    seasonPoints: 15,
+    seasonPoints: 0,
     seasonEliteUnlocked: false,
     claimedFreeTiers: [],
     claimedEliteTiers: [],
@@ -75,6 +75,7 @@ export function loadProfile(): LearnerProfile {
       equippedGear: { ...base.equippedGear, ...(parsed.equippedGear || {}) },
       unlockedSkinIds: parsed.unlockedSkinIds?.length ? parsed.unlockedSkinIds : base.unlockedSkinIds,
       equippedSkinId: parsed.equippedSkinId || base.equippedSkinId,
+      skinShards: parsed.skinShards ?? 0,
       inventory: parsed.inventory ? { ...parsed.inventory } : base.inventory,
       seasonPoints: parsed.seasonPoints ?? base.seasonPoints,
       seasonEliteUnlocked: parsed.seasonEliteUnlocked ?? false,
@@ -163,13 +164,15 @@ export function recordCaseCompletion(
   const keepCombo = firstTryPerfect || (Boolean(stats.luckyCloverActive) && stats.wrongAttempts <= 1);
   const newCombo = keepCombo ? (profile.currentCombo || 0) + 1 : 0;
   const maxCombo = Math.max(profile.maxCombo || 0, newCombo);
-  const comboBonus = newCombo >= 3 ? Math.min(10, newCombo * 2) : 0;
+  const comboBonus = newCombo >= 3 ? Math.min(5, newCombo) : 0;
 
-  const baseStars = detectiveCase.rewardStars + stats.bonusStars + (firstTryPerfect ? 5 : 3) + comboBonus;
+  // 防通胀平衡星星产出：基础(6~12) + 找线索奖(0~3) + 一次过奖(3或1) + 连击奖(0~5)
+  const clueReward = stats.bonusStars >= 5 ? 3 : stats.bonusStars > 0 ? 1 : 0;
+  const baseStars = Math.min(12, detectiveCase.rewardStars) + clueReward + (firstTryPerfect ? 3 : 1) + comboBonus;
   const earnedStars = stats.doubleStarsActive ? baseStars * 2 : baseStars;
-  const earnedXp = (detectiveCase.difficulty * 15) + (firstTryPerfect ? 15 : 10);
-  const earnedSp = 25 + (firstTryPerfect ? 10 : 5) + (stats.bonusStars >= 5 ? 5 : 0);
-  const earnedTreats = firstTryPerfect && newCombo % 2 === 0 ? 1 : 0;
+  const earnedXp = (detectiveCase.difficulty * 12) + (firstTryPerfect ? 12 : 8);
+  const earnedSp = 18 + (firstTryPerfect ? 7 : 3) + (stats.bonusStars >= 5 ? 5 : 0);
+  const earnedTreats = firstTryPerfect && newCombo > 0 && newCombo % 3 === 0 ? 1 : 0;
 
   const attempt: AttemptRecord = {
     caseId: detectiveCase.id,

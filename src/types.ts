@@ -216,13 +216,18 @@ export type PropItemId =
   | 'item_double_star'
   | 'item_boss_bomb'
   | 'item_lucky_clover'
-  | 'item_mystery_box';
+  | 'item_mystery_box'
+  | 'box_bronze'
+  | 'box_silver'
+  | 'box_gold'
+  | 'box_mythic';
 
 export interface SkinDef {
   id: SkinId;
   name: string;
   rarity: 'R' | 'SR' | 'SSR' | 'MYTHIC';
   cost: number; // 0 表示通行证限定或默认免费
+  shardCost?: number; // 万能皮肤碎片保底兑换价
   passOnly?: boolean;
   passTierHint?: string;
   emoji: string;
@@ -284,6 +289,7 @@ export interface LearnerProfile {
   equippedGear: Partial<Record<EquipmentItem['slot'], string>>;
   unlockedSkinIds: SkinId[];
   equippedSkinId: SkinId;
+  skinShards: number; // 开盲盒获得的万能皮肤碎片
   inventory: Partial<Record<PropItemId, number>>;
   seasonPoints: number;
   seasonEliteUnlocked: boolean;

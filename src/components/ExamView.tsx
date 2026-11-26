@@ -111,24 +111,23 @@ export const ExamView: React.FC<Props> = ({
     return (
       <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div
-          className="card"
+          className="card card-warm"
           style={{
-            background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)',
-            borderColor: '#F59E0B',
+            borderColor: '#D97706',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <DetectiveAvatar mood="happy" skinId={profile.equippedSkinId} equippedGear={equippedGear} size={86} />
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-                <span className="pill pill-orange">📝 16 套深圳四年级完整试卷</span>
-                <span className="pill pill-green">每卷 12~20 题 · 支持无限换变式新卷</span>
-                <span className="pill pill-blue">已挑战 {completedPaperCount}/{EXAM_PAPERS.length} 套</span>
+                <span className="pill pill-orange">📝 {EXAM_PAPERS.length} 套深圳四年级秘境试炼卷</span>
+                <span className="pill pill-green">每卷 12~20 题 · 交卷必掉青铜/白银盲盒！</span>
+                <span className="pill pill-blue">已通关 {completedPaperCount}/{EXAM_PAPERS.length} 套</span>
               </div>
-              <h2 style={{ margin: '4px 0 4px', fontSize: 22, fontWeight: 900, color: '#78350F' }}>
-                神探模拟考场（期中 / 期末 / 专题 / 全能大联考）
+              <h2 style={{ margin: '4px 0 4px', fontSize: 22, fontWeight: 900, color: '#FDE68A' }}>
+                秘境试炼考场（期中 / 期末 / 专题 / 20题压轴大卷）
               </h2>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#92400E' }}>
+              <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink-muted)' }}>
                 带答题卡跳题、插旗标记待检查、内置电子草稿纸与考前防粗心复查提醒——真正培养四年级高分考试习惯！
               </p>
             </div>
@@ -139,20 +138,20 @@ export const ExamView: React.FC<Props> = ({
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {(
             [
-              { id: 'all', label: `全部试卷 (${EXAM_PAPERS.length})` },
-              { id: 'english', label: '🇬🇧 英语卷 (7)' },
-              { id: 'math', label: '🧮 数学卷 (7)' },
+              { id: 'all', label: `全部试炼卷 (${EXAM_PAPERS.length})` },
+              { id: 'english', label: '🇬🇧 英语卷 (9)' },
+              { id: 'math', label: '🧮 数学卷 (9)' },
               { id: 'mixed', label: '🏆 英数大联考 (2)' },
-              { id: 'special', label: '🎯 防粗心/重难点专题 (6)' },
+              { id: 'special', label: '🎯 防粗心/重难点专题 (8)' },
             ] as { id: FilterMode; label: string }[]
           ).map((tab) => (
             <button
               key={tab.id}
               className="btn-soft"
               style={{
-                background: filter === tab.id ? '#F59E0B' : '#FFFFFF',
-                color: filter === tab.id ? '#FFFFFF' : '#475569',
-                borderColor: filter === tab.id ? '#D97706' : '#E2E8F0',
+                background: filter === tab.id ? '#DC2626' : '#221C2C',
+                color: filter === tab.id ? '#FEF3C7' : '#D6C7B2',
+                borderColor: filter === tab.id ? '#F59E0B' : '#4A3D58',
               }}
               onClick={() => setFilter(tab.id)}
             >
@@ -172,12 +171,12 @@ export const ExamView: React.FC<Props> = ({
                 key={paper.id}
                 className="card"
                 style={{
-                  padding: 18,
+                  padding: 17,
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   gap: 12,
-                  borderColor: best !== null && best >= 90 ? '#10B981' : 'var(--border-soft)',
+                  borderColor: best !== null && best >= 90 ? '#10B981' : '#3D3124',
                 }}
               >
                 <div>
@@ -188,14 +187,14 @@ export const ExamView: React.FC<Props> = ({
                     {best !== null ? (
                       <span className="pill pill-green">最高 {best} 分</span>
                     ) : (
-                      <span className="pill pill-amber">⭐+{paper.rewardStars} · 🦴+{paper.rewardTreats}</span>
+                      <span className="pill pill-amber">🎁 必掉盲盒 · ⭐+{Math.round(paper.rewardStars * 0.65)}</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 17, fontWeight: 900, color: '#0F172A' }}>{paper.title}</div>
-                  <div style={{ fontSize: 13, color: '#475569', fontWeight: 600, marginTop: 4 }}>
+                  <div style={{ fontSize: 16.5, fontWeight: 900, color: '#FDE68A' }}>{paper.title}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-muted)', fontWeight: 600, marginTop: 4 }}>
                     {paper.subtitle}
                   </div>
-                  <div style={{ fontSize: 12, color: '#92400E', marginTop: 8, background: '#FFFBEB', padding: '7px 10px', borderRadius: 10 }}>
+                  <div style={{ fontSize: 12, color: '#FDBA74', marginTop: 8, background: '#110D16', padding: '7px 10px', borderRadius: 10, border: '1px solid #332940' }}>
                     💬 {paper.encouragement}
                   </div>
                 </div>
@@ -578,9 +577,13 @@ export const ExamView: React.FC<Props> = ({
           )}
         </div>
 
-        {currentCase.visual && <MathVisualizer spec={currentCase.visual} stage={0} />}
+        {currentCase.visual && (
+          <div className="math-visual-light">
+            <MathVisualizer spec={currentCase.visual} stage={0} />
+          </div>
+        )}
 
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#FDE68A' }}>
           🎯 {currentCase.steps.length > 1 ? `综合解答：${targetStep.prompt.replace(/^第[二三]步（.*?）：|^第[二三]步：/, '')}` : targetStep.prompt}
         </div>
 
@@ -598,16 +601,16 @@ export const ExamView: React.FC<Props> = ({
                 }}
                 className="option-btn"
                 style={{
-                  borderColor: active ? '#F59E0B' : '#E2E8F0',
-                  background: active ? '#FFFBEB' : '#FFFFFF',
-                  boxShadow: active ? '0 4px 0 #F59E0B' : '0 4px 0 #E2E8F0',
+                  borderColor: active ? '#F59E0B' : '#453953',
+                  background: active ? '#35261A' : '#211C2B',
+                  boxShadow: active ? '0 0 14px rgba(245, 158, 11, 0.35)' : '0 4px 0 #0F0C14',
                 }}
               >
                 <span
                   className="option-letter"
                   style={{
-                    background: active ? '#F59E0B' : '#F1F5F9',
-                    color: active ? '#FFFFFF' : '#475569',
+                    background: active ? '#F59E0B' : '#352D44',
+                    color: active ? '#1C1008' : '#FDE68A',
                   }}
                 >
                   {['A', 'B', 'C', 'D'][idx]}

@@ -1,5 +1,18 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Flame, HelpCircle, Lightbulb, PenTool, Search, Sparkles, Volume2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Flame,
+  HelpCircle,
+  Lightbulb,
+  PenTool,
+  Search,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  Swords,
+  Volume2,
+} from 'lucide-react';
 import { DetectiveCase, EquipmentItem, PropItemId, SkinId } from '../types';
 import { DetectiveAvatar, AvatarMood } from './DetectiveAvatar';
 import { MathVisualizer } from './MathVisualizer';
@@ -25,9 +38,22 @@ interface Props {
     bonusStars: number;
     doubleStarsActive?: boolean;
     luckyCloverActive?: boolean;
-  }) => { earnedStars: number; earnedXp?: number; earnedSp?: number; newCombo?: number; unlockedCardId?: string };
+  }) => {
+    earnedStars: number;
+    earnedXp?: number;
+    earnedSp?: number;
+    newCombo?: number;
+    unlockedCardId?: string;
+    droppedLootText?: string;
+  };
   onNextCase?: () => void;
 }
+
+const MONSTER_TIERS = {
+  1: { label: '普通小怪', emoji: '💀', color: '#93C5FD', maxHp: 100, border: '#3B82F6' },
+  2: { label: '精英怪 · 稀有', emoji: '👹', color: '#FDE047', maxHp: 200, border: '#F59E0B' },
+  3: { label: '暗金首领 BOSS', emoji: '🐉', color: '#FB923C', maxHp: 300, border: '#EA580C' },
+} as const;
 
 export const CasePlayView: React.FC<Props> = ({
   detectiveCase,
@@ -41,15 +67,23 @@ export const CasePlayView: React.FC<Props> = ({
   onNextCase,
 }) => {
   const startTimeRef = useRef(Date.now());
+  const tierInfo = MONSTER_TIERS[detectiveCase.difficulty];
+  const maxHp = tierInfo.maxHp;
+
   const [stepIdx, setStepIdx] = useState(0);
+  const [monsterHp, setMonsterHp] = useState<number>(maxHp);
+  const [monsterHitAnim, setMonsterHitAnim] = useState(false);
+  const [dmgPopup, setDmgPopup] = useState('');
+
   const [foundTokenIndices, setFoundTokenIndices] = useState<number[]>([]);
   const [shakenToken, setShakenToken] = useState<number | null>(null);
   const [activeClueTip, setActiveClueTip] = useState<string>('');
   const [triedWrongIndices, setTriedWrongIndices] = useState<number[]>([]);
+  const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
   const [stepSolved, setStepSolved] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<string>('');
   const [feedbackTone, setFeedbackTone] = useState<'neutral' | 'warm' | 'success'>('neutral');
-  const [hintLevel, setHintLevel] = useState<number>(0); // 0, 1, 2, 3
+  const [hintLevel, setHintLevel] = useState<number>(0);
   const [totalHintsUsed, setTotalHintsUsed] = useState(0);
   const [totalWrongAttempts, setTotalWrongAttempts] = useState(0);
   const [cluesFoundBeforeFirstAnswer, setCluesFoundBeforeFirstAnswer] = useState<boolean | null>(null);
@@ -59,8 +93,8 @@ export const CasePlayView: React.FC<Props> = ({
   const [earnedSp, setEarnedSp] = useState(0);
   const [comboCount, setComboCount] = useState(0);
   const [unlockedCardId, setUnlockedCardId] = useState<string | undefined>(undefined);
+  const [droppedLootText, setDroppedLootText] = useState<string | undefined>(undefined);
   const [scratchOpen, setScratchOpen] = useState(false);
-  const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
   const [doubleStarsActive, setDoubleStarsActive] = useState(false);
   const [luckyCloverActive, setLuckyCloverActive] = useState(false);
   const [propToast, setPropToast] = useState('');
@@ -76,10 +110,10 @@ export const CasePlayView: React.FC<Props> = ({
 
   const foundTargetCount = targetClueIndices.filter((i) => foundTokenIndices.includes(i)).length;
   const allTargetsFound = targetClueIndices.length > 0 && foundTargetCount === targetClueIndices.length;
+  const shieldPct = targetClueIndices.length === 0 ? 0 : Math.round(((targetClueIndices.length - foundTargetCount) / targetClueIndices.length) * 100);
 
   const currentStep = detectiveCase.steps[stepIdx];
 
-  // 计算阿探心情
   const avatarMood: AvatarMood = caseFinished
     ? 'celebrating'
     : stepSolved
@@ -89,6 +123,13 @@ export const CasePlayView: React.FC<Props> = ({
     : hintLevel > 0
     ? 'thinking'
     : 'curious';
+
+  const triggerHitEffect = (dmg: number, isCrit: boolean) => {
+    setMonsterHitAnim(true);
+    setDmgPopup(`${isCrit ? '⚡暴击 ' : ''}-${dmg} HP!`);
+    setTimeout(() => setMonsterHitAnim(false), 400);
+    setTimeout(() => setDmgPopup(''), 950);
+  };
 
   const handleTokenClick = (index: number) => {
     const token = detectiveCase.tokens[index];
@@ -103,13 +144,12 @@ export const CasePlayView: React.FC<Props> = ({
         setActiveClueTip(token.clueTip);
       }
     } else {
-      // 点了普通词：温柔提示，绝不打击
       setShakenToken(index);
       setTimeout(() => setShakenToken(null), 380);
       setActiveClueTip(
         isSpotBug
-          ? `“${token.text}”看起来挺正常的，再把放大镜移到别的词上检查看看~`
-          : `“${token.text}”是普通背景词，找找表示【人称/时间/数量/陷阱】的关键线索哦！`
+          ? `“${token.text}”没有异常，再扫描其他词寻找怪物的语法破绽！`
+          : `“${token.text}”是普通掩体，击中【人称/时间/数字/陷阱词】即可击碎怪物护盾！`
       );
     }
   };
@@ -119,13 +159,12 @@ export const CasePlayView: React.FC<Props> = ({
     sound.playHint();
     setHintLevel((h) => h + 1);
     setTotalHintsUsed((n) => n + 1);
-    // 第1级提示自动帮孩子点亮一个还没找到的线索，降低畏难情绪
     if (hintLevel === 0 && !allTargetsFound) {
       const missing = targetClueIndices.find((i) => !foundTokenIndices.includes(i));
       if (missing !== undefined) {
         setFoundTokenIndices((prev) => [...prev, missing]);
         const tip = detectiveCase.tokens[missing].clueTip;
-        if (tip) setActiveClueTip(`阿探帮你照出了线索：${tip}`);
+        if (tip) setActiveClueTip(`阿探施放侦测术破盾：${tip}`);
       }
     }
   };
@@ -141,6 +180,13 @@ export const CasePlayView: React.FC<Props> = ({
 
     if (optIndex === currentStep.correctIndex) {
       sound.playStepSuccess();
+      const totalSteps = detectiveCase.steps.length;
+      const isLast = stepIdx === totalSteps - 1;
+      const stepDmg = isLast ? monsterHp : Math.round(maxHp / totalSteps);
+      const nextHp = Math.max(0, monsterHp - stepDmg);
+      setMonsterHp(nextHp);
+      triggerHitEffect(stepDmg, allTargetsFound);
+
       setStepSolved(true);
       setFeedbackTone('success');
       setFeedbackMsg(fb);
@@ -156,7 +202,7 @@ export const CasePlayView: React.FC<Props> = ({
         setTriedWrongIndices((prev) => [...prev, optIndex]);
       }
       setFeedbackTone('warm');
-      setFeedbackMsg(fb);
+      setFeedbackMsg(`🛡️ 圣光护盾挡住了怪物的反击！${fb}`);
     }
   };
 
@@ -170,7 +216,6 @@ export const CasePlayView: React.FC<Props> = ({
       setFeedbackTone('neutral');
       setHintLevel(0);
     } else {
-      // 全部步骤完成，破案！
       sound.playCaseSolved();
       const durationSec = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
       const bonusStars = allTargetsFound ? 5 : foundTargetCount > 0 ? 2 : 0;
@@ -185,9 +230,10 @@ export const CasePlayView: React.FC<Props> = ({
       });
       setEarnedStars(res.earnedStars);
       setEarnedXp(res.earnedXp || 20);
-      setEarnedSp(res.earnedSp || 25);
+      setEarnedSp(res.earnedSp || 20);
       setComboCount(res.newCombo || 0);
       setUnlockedCardId(res.unlockedCardId);
+      setDroppedLootText(res.droppedLootText);
       setCaseFinished(true);
     }
   };
@@ -201,8 +247,8 @@ export const CasePlayView: React.FC<Props> = ({
       .map((i) => detectiveCase.tokens[i].clueTip)
       .filter(Boolean)
       .join(' ｜ ');
-    setActiveClueTip(`🔦 透视扫描仪已全开！${tips}`);
-    setPropToast('🔦 透视扫描仪生效：全部隐藏线索已瞬间照亮！');
+    setActiveClueTip(`🔦 透视扫描仪秒破怪物全部护盾！${tips}`);
+    setPropToast('🔦 护盾粉碎！下一次攻击将造成全额暴击！');
     setTimeout(() => setPropToast(''), 2800);
   };
 
@@ -216,7 +262,7 @@ export const CasePlayView: React.FC<Props> = ({
     onConsumeProp('item_fifty');
     const toCut = wrongPool.slice(0, Math.min(2, wrongPool.length - (wrongPool.length > 2 ? 1 : 0)));
     setEliminatedOptions((prev) => [...prev, ...toCut]);
-    setPropToast(`✂️ 50/50 排除剪刀咔嚓剪掉了 ${toCut.length} 个干扰项！`);
+    setPropToast(`✂️ 破魔剪刀斩断了 ${toCut.length} 个虚假幻象选项！`);
     setTimeout(() => setPropToast(''), 2800);
   };
 
@@ -225,7 +271,7 @@ export const CasePlayView: React.FC<Props> = ({
     sound.playUnlock();
     onConsumeProp('item_double_star');
     setDoubleStarsActive(true);
-    setPropToast('🧪 双倍星星药水已生效！本案破案星星直接 ×2 翻倍！');
+    setPropToast('🧪 贪婪双倍药水生效：斩杀怪物掉落星星直接 ×2！');
     setTimeout(() => setPropToast(''), 2800);
   };
 
@@ -234,76 +280,85 @@ export const CasePlayView: React.FC<Props> = ({
     sound.playUnlock();
     onConsumeProp('item_lucky_clover');
     setLuckyCloverActive(true);
-    setPropToast('🍀 连击守护四叶草已激活！本关失误一次也不会断连击！');
+    setPropToast('🍀 圣光守护草激活：本战失误一次不断连击！');
     setTimeout(() => setPropToast(''), 2800);
   };
 
-  const visualStage = stepSolved
-    ? currentStep.visualStage ?? stepIdx + 1
-    : stepIdx;
-
-  // 抓语法小偷模式下，必须先点出错误词才展开修复选项，强化审题！
+  const visualStage = stepSolved ? currentStep.visualStage ?? stepIdx + 1 : stepIdx;
   const needsBugFindFirst = isSpotBug && !allTargetsFound;
-
   const courageBoost =
     triedWrongIndices.length >= 2 && !stepSolved
       ? COURAGE_QUOTES[(detectiveCase.id.length + triedWrongIndices.length) % COURAGE_QUOTES.length]
       : '';
 
+  // ================= 击杀掉宝结算（暗黑4 传奇光柱！） =================
   if (caseFinished) {
     const celebQuote = CELEBRATION_QUOTES[detectiveCase.id.length % CELEBRATION_QUOTES.length];
     return (
       <div className="fade-in">
         <ConfettiBurst />
-        <div className="card card-warm" style={{ textAlign: 'center', padding: '28px 22px' }}>
-          <div style={{ marginBottom: 14 }}>
-            <span className="stamp-closed">CASE CLOSED · 已破案</span>
+        <div className="card card-warm" style={{ textAlign: 'center', padding: '28px 20px' }}>
+          <div style={{ marginBottom: 12 }}>
+            <span className="stamp-closed">⚔️ MONSTER SLAIN · 斩杀掉宝</span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
-            <DetectiveAvatar mood="celebrating" skinId={skinId} equippedGear={equippedGear} size={130} />
+          <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
+            <DetectiveAvatar mood="celebrating" skinId={skinId} equippedGear={equippedGear} size={136} />
           </div>
 
-          <h2 style={{ margin: '8px 0 6px', fontSize: 26, fontWeight: 900, color: '#92400E' }}>
-            太棒了，{nickname} 神探！
+          <h2 style={{ margin: '8px 0 6px', fontSize: 25, fontWeight: 900, color: '#FDE047' }}>
+            {nickname} 斩杀了 {tierInfo.emoji}「{detectiveCase.suspectName}」！
           </h2>
-          <p style={{ margin: '0 auto 18px', maxWidth: 500, color: '#78350F', fontWeight: 600 }}>
-            成功抓获「{detectiveCase.suspectName}」！{celebQuote}
+          <p style={{ margin: '0 auto 16px', maxWidth: 500, color: '#D6C7B2', fontWeight: 600 }}>
+            {celebQuote}
           </p>
 
+          {/* 暗黑战利品掉落区 */}
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 14,
-              background: '#FFFFFF',
-              padding: '12px 24px',
-              borderRadius: 18,
-              border: '2px solid #FCD34D',
-              marginBottom: 16,
+              gap: 12,
+              background: '#120F18',
+              padding: '12px 22px',
+              borderRadius: 16,
+              border: '2px solid #D97706',
+              marginBottom: 14,
               flexWrap: 'wrap',
               justifyContent: 'center',
             }}
           >
-            <div style={{ fontWeight: 900, fontSize: 20, color: '#D97706' }}>
-              ⭐ +{earnedStars} 侦探星 {doubleStarsActive ? '(双倍药水×2!)' : ''}
+            <div style={{ fontWeight: 900, fontSize: 19, color: '#FDE047' }}>
+              ⭐ +{earnedStars} 战利品星 {doubleStarsActive ? '(×2!)' : ''}
             </div>
             <span className="pill pill-purple">⚡ +{earnedXp} XP</span>
             <span className="pill pill-blue">🏆 +{earnedSp} 赛季点</span>
             {comboCount >= 2 && (
               <span className="pill pill-orange">
-                <Flame size={13} /> {comboCount} 连击！
+                <Flame size={13} /> {comboCount} 连杀！
               </span>
             )}
-            {allTargetsFound && (
-              <span className="pill pill-amber">🔍 放大镜全线索奖励 +5⭐</span>
-            )}
-            {totalWrongAttempts === 0 ? (
-              <span className="pill pill-green">🎯 一次完美破案</span>
-            ) : (
-              <span className="pill pill-blue">💪 越挫越勇 · 成功排雷</span>
-            )}
           </div>
+
+          {droppedLootText && (
+            <div
+              className="fade-in"
+              style={{
+                maxWidth: 520,
+                margin: '0 auto 14px',
+                background: 'linear-gradient(90deg, rgba(234,88,12,0.32), rgba(217,119,6,0.28))',
+                border: '2px solid #F97316',
+                borderRadius: 14,
+                padding: '10px 16px',
+                fontWeight: 900,
+                fontSize: 15,
+                color: '#FEF08A',
+                boxShadow: '0 0 22px rgba(249, 115, 22, 0.35)',
+              }}
+            >
+              ✨ 传奇光柱掉落！{droppedLootText}
+            </div>
+          )}
 
           {unlockedCardId && (() => {
             const card = KNOWLEDGE_CARDS.find((c) => c.id === unlockedCardId);
@@ -312,40 +367,39 @@ export const CasePlayView: React.FC<Props> = ({
               <div
                 style={{
                   maxWidth: 520,
-                  margin: '0 auto 16px',
-                  background: 'linear-gradient(135deg, #FEF3C7, #EDE9FE)',
-                  border: '2.5px solid #8B5CF6',
-                  borderRadius: 16,
-                  padding: '12px 16px',
+                  margin: '0 auto 14px',
+                  background: 'rgba(139, 92, 246, 0.2)',
+                  border: '2px solid #A855F7',
+                  borderRadius: 14,
+                  padding: '10px 16px',
                   textAlign: 'left',
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 900, color: '#6D28D9' }}>
-                  🃏 点亮全新口诀卡牌 [{card.rarity}]！已存入图鉴
+                <div style={{ fontSize: 12, fontWeight: 900, color: '#D8B4FE' }}>
+                  🃏 掉落新技能符文卡 [{card.rarity}]！已收录图鉴
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 900, marginTop: 3 }}>
+                <div style={{ fontSize: 15, fontWeight: 900, marginTop: 2, color: '#FFFFFF' }}>
                   {card.emoji} {card.title}
                 </div>
               </div>
             );
           })()}
 
-          {/* 破案收获的神探口诀 */}
           <div
             style={{
-              background: '#FFFFFF',
-              border: '2.5px solid #10B981',
-              borderRadius: 18,
-              padding: '16px 20px',
+              background: '#120F18',
+              border: '2px solid #10B981',
+              borderRadius: 16,
+              padding: '14px 18px',
               textAlign: 'left',
               maxWidth: 620,
-              margin: '0 auto 22px',
+              margin: '0 auto 20px',
             }}
           >
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#059669', marginBottom: 4 }}>
-              📜 收录进神探秘籍（{detectiveCase.textbookRef}）
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: '#6EE7B7', marginBottom: 4 }}>
+              📜 缴获智慧符文（{detectiveCase.textbookRef}）
             </div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
+            <div style={{ fontSize: 15.5, fontWeight: 800, color: '#F5EFE4' }}>
               {detectiveCase.goldenRule}
             </div>
             {detectiveCase.readAloudText && (
@@ -354,18 +408,18 @@ export const CasePlayView: React.FC<Props> = ({
                 style={{ marginTop: 10 }}
                 onClick={() => speakEnglish(detectiveCase.readAloudText!)}
               >
-                <Volume2 size={16} /> 再听一遍标准英文读音
+                <Volume2 size={15} /> 听英文标准读音
               </button>
             )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button className="btn-soft" onClick={onBack}>
-              返回事务所
+              返回庇护所
             </button>
             {onNextCase && (
               <button className="btn-primary" onClick={onNextCase}>
-                继续下一宗案件 →
+                继续猎杀下一只怪 →
               </button>
             )}
           </div>
@@ -374,91 +428,145 @@ export const CasePlayView: React.FC<Props> = ({
     );
   }
 
+  const hpPct = Math.round((monsterHp / maxHp) * 100);
+
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* 顶部返回与案件进度 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* 顶栏 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <button className="btn-soft" onClick={onBack}>
-          <ArrowLeft size={17} /> 返回
+          <ArrowLeft size={16} /> 撤回庇护所
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
           <span className={`pill ${detectiveCase.subject === 'english' ? 'pill-blue' : 'pill-green'}`}>
-            {detectiveCase.subject === 'english' ? '🇬🇧 英语语法探案' : '🧮 数学逻辑实验室'}
+            {detectiveCase.subject === 'english' ? '🇬🇧 英语魔窟' : '🧮 数学地牢'}
           </span>
           <span className="pill pill-amber">{detectiveCase.textbookRef}</span>
-          <span className="pill pill-orange">👾 {detectiveCase.suspectName}</span>
         </div>
       </div>
 
-      {/* 步骤进度条（数学多步拆解时尤其有成就感） */}
-      {detectiveCase.steps.length > 1 && (
-        <div className="card" style={{ padding: '12px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 800, marginBottom: 6, color: '#92400E' }}>
-            <span>🧩 难题切块进度：第 {stepIdx + 1} / {detectiveCase.steps.length} 小步</span>
-            <span>一步一步来，超轻松！</span>
+      {/* ================= 暗黑4 实时怪物战斗舞台（每题都有血条 + 护盾条！） ================= */}
+      <div className="combat-arena" style={{ borderColor: tierInfo.border }}>
+        {dmgPopup && <div className="dmg-popup">{dmgPopup}</div>}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+          {/* 左侧：英雄阿探 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <DetectiveAvatar mood={avatarMood} skinId={skinId} equippedGear={equippedGear} size={86} />
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 15, color: '#FDE68A' }}>
+                {nickname} · 圣光猎魔人
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6EE7B7', fontWeight: 700, marginTop: 3 }}>
+                <Shield size={14} /> 圣光护盾：无敌守护（答错免伤）
+              </div>
+              {detectiveCase.steps.length > 1 && (
+                <div style={{ fontSize: 12, color: '#93C5FD', fontWeight: 700, marginTop: 2 }}>
+                  ⚔️ 多段连招：第 {stepIdx + 1} / {detectiveCase.steps.length} 击
+                </div>
+              )}
+            </div>
           </div>
-          <div className="progress-track">
+
+          <div style={{ fontWeight: 900, fontSize: 18, color: '#EF4444' }}>⚔️ VS</div>
+
+          {/* 右侧：当前题目的小怪 / 精英 / 首领 + 血条 */}
+          <div
+            className={monsterHitAnim ? 'monster-hit' : undefined}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 220, justifyContent: 'flex-end' }}
+          >
+            <div style={{ flex: 1, maxWidth: 290 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <span style={{ fontWeight: 900, fontSize: 15, color: tierInfo.color }}>
+                  {detectiveCase.suspectName}
+                </span>
+                <span className="pill pill-orange" style={{ fontSize: 11, padding: '2px 8px' }}>
+                  {tierInfo.label}
+                </span>
+              </div>
+
+              {/* 怪物红色血条 */}
+              <div className="hp-bar-shell">
+                <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 11,
+                    fontWeight: 900,
+                    color: '#FFFFFF',
+                    textShadow: '0 1px 3px #000',
+                  }}
+                >
+                  HP {monsterHp} / {maxHp}
+                </div>
+              </div>
+
+              {/* 蓝色护盾条（圈出线索即破盾！） */}
+              <div className="shield-bar-shell">
+                <div className="shield-bar-fill" style={{ width: `${shieldPct}%` }} />
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: allTargetsFound ? '#FDE047' : '#7DD3FC', marginTop: 3, textAlign: 'right' }}>
+                {allTargetsFound
+                  ? '⚡ 护盾已粉碎！下击必触发暴击 (+3⭐)！'
+                  : `🛡️ 护盾 ${shieldPct}% · 找线索 ${foundTargetCount}/${targetClueIndices.length} 可破盾`}
+              </div>
+            </div>
+
             <div
-              className="progress-fill"
               style={{
-                width: `${((stepIdx + (stepSolved ? 1 : 0.25)) / detectiveCase.steps.length) * 100}%`,
+                width: 64,
+                height: 64,
+                borderRadius: 16,
+                background: 'linear-gradient(145deg, #2B1319, #150A0E)',
+                border: `2.5px solid ${tierInfo.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 36,
+                boxShadow: `0 0 18px ${tierInfo.border}55`,
+                flexShrink: 0,
               }}
-            />
+            >
+              {tierInfo.emoji}
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* 案件主面板 */}
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+      {/* 题目与技能攻击面板 */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>{detectiveCase.title}</h2>
-            <p style={{ margin: '6px 0 0', fontSize: 15, color: 'var(--ink-muted)' }}>
-              {detectiveCase.storyIntro}
-            </p>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#FDE68A' }}>{detectiveCase.title}</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--ink-muted)' }}>{detectiveCase.storyIntro}</p>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
             {detectiveCase.readAloudText && (
-              <button
-                className="btn-soft"
-                onClick={() => speakEnglish(detectiveCase.readAloudText!)}
-                title="朗读英语句子"
-              >
-                <Volume2 size={18} /> 听读音
+              <button className="btn-soft" onClick={() => speakEnglish(detectiveCase.readAloudText!)}>
+                <Volume2 size={16} /> 朗读
               </button>
             )}
             {detectiveCase.subject === 'math' && (
-              <button
-                className="btn-soft"
-                onClick={() => setScratchOpen(true)}
-                title="打开电子草稿纸列竖式画图"
-              >
-                <PenTool size={16} /> 打草稿
+              <button className="btn-soft" onClick={() => setScratchOpen(true)}>
+                <PenTool size={15} /> 打草稿
               </button>
             )}
           </div>
         </div>
 
-        {/* 放大镜扫线索区 */}
+        {/* 破盾线索区 */}
         <div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 8,
-              flexWrap: 'wrap',
-              gap: 6,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: 14, color: '#B45309' }}>
-              <Search size={17} />
-              <span>{detectiveCase.clueGoalText}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7, flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: 13.5, color: '#FBBF24' }}>
+              <Search size={16} />
+              <span>破盾操作：{detectiveCase.clueGoalText}</span>
             </div>
             <span className={`pill ${allTargetsFound ? 'pill-green' : 'pill-amber'}`}>
-              {allTargetsFound
-                ? '✨ 线索找齐！已锁定 +5⭐ 奖励'
-                : `已照出 ${foundTargetCount} / ${targetClueIndices.length} 处`}
+              {allTargetsFound ? '⚡ 护盾击破！' : `破盾进度 ${foundTargetCount}/${targetClueIndices.length}`}
             </span>
           </div>
 
@@ -468,10 +576,7 @@ export const CasePlayView: React.FC<Props> = ({
               if (tok.isBlank) {
                 const filledWord = chosenAnswers[0];
                 return (
-                  <span
-                    key={idx}
-                    className={`clue-token ${filledWord ? 'blank-filled' : 'blank-slot'}`}
-                  >
+                  <span key={idx} className={`clue-token ${filledWord ? 'blank-filled' : 'blank-slot'}`}>
                     {filledWord || '___'}
                   </span>
                 );
@@ -497,49 +602,51 @@ export const CasePlayView: React.FC<Props> = ({
             <div
               className="fade-in"
               style={{
-                marginTop: 10,
-                background: '#FEF3C7',
-                border: '2px solid #FCD34D',
-                borderRadius: 14,
-                padding: '10px 14px',
-                fontSize: 14,
+                marginTop: 9,
+                background: 'rgba(217, 119, 6, 0.2)',
+                border: '1.5px solid #F59E0B',
+                borderRadius: 12,
+                padding: '9px 13px',
+                fontSize: 13.5,
                 fontWeight: 700,
-                color: '#92400E',
+                color: '#FEF3C7',
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: 8,
               }}
             >
-              <Sparkles size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+              <Sparkles size={17} style={{ flexShrink: 0, marginTop: 2, color: '#FACC15' }} />
               <span>{activeClueTip}</span>
             </div>
           )}
         </div>
 
-        {/* 数学动态可视化图示 */}
+        {/* 数学可视化图解（保持清晰高亮底方便看清每个数字） */}
         {detectiveCase.visual && (
-          <MathVisualizer spec={detectiveCase.visual} stage={visualStage} />
+          <div className="math-visual-light">
+            <MathVisualizer spec={detectiveCase.visual} stage={visualStage} />
+          </div>
         )}
 
-        {/* 答题推理区 */}
+        {/* 攻击招式选择区 */}
         {needsBugFindFirst ? (
           <div
             style={{
-              background: '#FFF7ED',
+              background: 'rgba(234, 88, 12, 0.16)',
               border: '2px dashed #FB923C',
-              borderRadius: 16,
-              padding: '16px 18px',
+              borderRadius: 14,
+              padding: '15px 16px',
               textAlign: 'center',
               fontWeight: 800,
-              color: '#9A3412',
+              color: '#FED7AA',
             }}
           >
-            🕵️ 先在上面的英语句子里，用手指点出那个【写错的语法小偷词】，抓到后就可以修复它啦！
+            ⚔️ 先在上方句子中点出那个【隐藏语法破绽词】击碎怪物护盾，即可发动致命一击！
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#0F172A' }}>
-              🎯 {currentStep.prompt}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div style={{ fontSize: 16.5, fontWeight: 800, color: '#FDE68A', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Swords size={18} color="#F97316" /> {currentStep.prompt}
             </div>
 
             <div className="option-grid">
@@ -554,14 +661,14 @@ export const CasePlayView: React.FC<Props> = ({
                     type="button"
                     disabled={stepSolved || isEliminated}
                     onClick={() => handleSelectOption(idx)}
-                    style={isEliminated ? { opacity: 0.35, textDecoration: 'line-through' } : undefined}
+                    style={isEliminated ? { opacity: 0.3, textDecoration: 'line-through' } : undefined}
                     className={[
                       'option-btn',
                       isCorrectChosen ? 'correct' : '',
                       isWrongTried ? 'tried-wrong' : '',
                     ].join(' ')}
                   >
-                    <span className="option-letter">{isCorrectChosen ? '✓' : isEliminated ? '✂️' : letter}</span>
+                    <span className="option-letter">{isCorrectChosen ? '⚔️' : isEliminated ? '✂️' : letter}</span>
                     <span>{opt}</span>
                   </button>
                 );
@@ -570,177 +677,131 @@ export const CasePlayView: React.FC<Props> = ({
           </div>
         )}
 
-        {/* 神探实战道具腰带 */}
+        {/* 暗黑道具技能快捷腰带 */}
         {!stepSolved && (
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 7,
               flexWrap: 'wrap',
-              background: '#F8FAFC',
-              border: '1.5px solid #E2E8F0',
-              borderRadius: 14,
-              padding: '8px 12px',
+              background: '#120F18',
+              border: '1.5px solid #3D3124',
+              borderRadius: 12,
+              padding: '8px 11px',
             }}
           >
-            <span style={{ fontSize: 12, fontWeight: 900, color: '#475569' }}>🎒 道具腰带：</span>
+            <span style={{ fontSize: 12, fontWeight: 900, color: '#B6A995' }}>🎒 快捷道具：</span>
             <button
               type="button"
               className="btn-soft"
-              style={{ padding: '5px 10px', fontSize: 12 }}
+              style={{ padding: '5px 9px', fontSize: 12 }}
               disabled={(inventory.item_scanner || 0) <= 0 || allTargetsFound}
               onClick={handleUseScanner}
             >
-              🔦 透视扫描 ({inventory.item_scanner || 0})
+              🔦 破盾扫描 ({inventory.item_scanner || 0})
             </button>
             <button
               type="button"
               className="btn-soft"
-              style={{ padding: '5px 10px', fontSize: 12 }}
+              style={{ padding: '5px 9px', fontSize: 12 }}
               disabled={(inventory.item_fifty || 0) <= 0 || needsBugFindFirst}
               onClick={handleUseFifty}
             >
-              ✂️ 50/50剪刀 ({inventory.item_fifty || 0})
+              ✂️ 破魔剪刀 ({inventory.item_fifty || 0})
             </button>
             <button
               type="button"
               className="btn-soft"
-              style={{
-                padding: '5px 10px',
-                fontSize: 12,
-                background: doubleStarsActive ? '#FEF08A' : undefined,
-              }}
+              style={{ padding: '5px 9px', fontSize: 12, borderColor: doubleStarsActive ? '#FACC15' : undefined }}
               disabled={(inventory.item_double_star || 0) <= 0 || doubleStarsActive}
               onClick={handleUseDoubleStar}
             >
-              🧪 {doubleStarsActive ? '双倍生效中!' : `双倍星星 (${inventory.item_double_star || 0})`}
+              🧪 {doubleStarsActive ? '双倍生效!' : `双倍药水 (${inventory.item_double_star || 0})`}
             </button>
             <button
               type="button"
               className="btn-soft"
-              style={{
-                padding: '5px 10px',
-                fontSize: 12,
-                background: luckyCloverActive ? '#D1FAE5' : undefined,
-              }}
+              style={{ padding: '5px 9px', fontSize: 12, borderColor: luckyCloverActive ? '#34D399' : undefined }}
               disabled={(inventory.item_lucky_clover || 0) <= 0 || luckyCloverActive}
               onClick={handleUseClover}
             >
-              🍀 {luckyCloverActive ? '护连击中!' : `连击幸运草 (${inventory.item_lucky_clover || 0})`}
+              🍀 {luckyCloverActive ? '护连杀中!' : `守护草 (${inventory.item_lucky_clover || 0})`}
             </button>
           </div>
         )}
 
         {propToast && (
-          <div className="fade-in" style={{ background: '#EDE9FE', border: '2px solid #8B5CF6', borderRadius: 12, padding: '8px 12px', fontSize: 13, fontWeight: 800, color: '#4C1D95' }}>
+          <div className="fade-in" style={{ background: 'rgba(139, 92, 246, 0.25)', border: '1.5px solid #A855F7', borderRadius: 12, padding: '8px 12px', fontSize: 13, fontWeight: 800, color: '#E9D5FF' }}>
             {propToast}
           </div>
         )}
 
-        {/* 阿探即时温柔反馈区 */}
+        {/* 阿探战报反馈 */}
         {(feedbackMsg || courageBoost) && (
           <div
             className="fade-in"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 14,
-              background: feedbackTone === 'success' ? '#ECFDF5' : '#FFF7ED',
-              border: `2px solid ${feedbackTone === 'success' ? '#34D399' : '#FDBA74'}`,
-              borderRadius: 18,
-              padding: '14px 16px',
+              gap: 13,
+              background: feedbackTone === 'success' ? 'rgba(6, 78, 59, 0.45)' : 'rgba(124, 45, 18, 0.35)',
+              border: `1.5px solid ${feedbackTone === 'success' ? '#34D399' : '#FB923C'}`,
+              borderRadius: 15,
+              padding: '12px 14px',
             }}
           >
-            <DetectiveAvatar mood={avatarMood} skinId={skinId} equippedGear={equippedGear} size={76} />
+            <DetectiveAvatar mood={avatarMood} skinId={skinId} equippedGear={equippedGear} size={72} />
             <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: 15,
-                  color: feedbackTone === 'success' ? '#065F46' : '#9A3412',
-                }}
-              >
+              <div style={{ fontWeight: 800, fontSize: 14.5, color: feedbackTone === 'success' ? '#A7F3D0' : '#FED7AA' }}>
                 {feedbackMsg}
               </div>
               {courageBoost && (
-                <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#B45309' }}>
-                  💛 阿探悄悄话：{courageBoost}
+                <div style={{ marginTop: 5, fontSize: 13, fontWeight: 700, color: '#FDE047' }}>
+                  💛 阿探助威：{courageBoost}
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* 免费求助锦囊区（零惩罚） + 下一步按钮 */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            flexWrap: 'wrap',
-            paddingTop: 6,
-            borderTop: '1.5px solid #F1E9D6',
-          }}
-        >
+        {/* 底部操作条 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', paddingTop: 6, borderTop: '1px solid #332940' }}>
           {!stepSolved ? (
-            <button
-              type="button"
-              className="btn-soft"
-              onClick={handleRevealHint}
-              disabled={hintLevel >= 3}
-            >
-              <HelpCircle size={17} />
-              {hintLevel === 0
-                ? '向阿探求助（免费不扣星）'
-                : hintLevel < 3
-                ? `再看一层提示（${hintLevel}/3）`
-                : '3 层锦囊已全部打开'}
+            <button type="button" className="btn-soft" onClick={handleRevealHint} disabled={hintLevel >= 3}>
+              <HelpCircle size={16} />
+              {hintLevel === 0 ? '召唤圣光锦囊（免费不扣星）' : hintLevel < 3 ? `再看一层秘术（${hintLevel}/3）` : '3 层秘术已全开'}
             </button>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#059669', fontWeight: 800 }}>
-              <CheckCircle2 size={20} /> 这一步稳稳拿下！
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#34D399', fontWeight: 800 }}>
+              <CheckCircle2 size={18} /> 命中弱点！怪物重伤！
             </div>
           )}
 
           {stepSolved && (
-            <button type="button" className="btn-mint" onClick={handleContinue}>
-              {stepIdx < detectiveCase.steps.length - 1 ? '进入下一小步 →' : '🎉 盖章破案！'}
+            <button type="button" className="btn-primary" onClick={handleContinue}>
+              {stepIdx < detectiveCase.steps.length - 1 ? '⚔️ 发动下一段连招 →' : '💎 终结怪物拾取战利品！'}
             </button>
           )}
         </div>
 
-        {/* 展开的 3 级渐进提示 */}
         {hintLevel > 0 && !stepSolved && (
-          <div
-            className="fade-in"
-            style={{
-              background: '#F5F3FF',
-              border: '2px solid #C4B5FD',
-              borderRadius: 16,
-              padding: '12px 16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: 13, color: '#6D28D9' }}>
-              <Lightbulb size={16} /> 阿探免费提示锦囊（使用提示不扣星星哦！）
+          <div className="fade-in" style={{ background: 'rgba(88, 28, 135, 0.25)', border: '1.5px solid #A855F7', borderRadius: 14, padding: '11px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: 13, color: '#D8B4FE' }}>
+              <Lightbulb size={15} /> 圣光智慧锦囊（免费不扣星）
             </div>
             {currentStep.hints.slice(0, hintLevel).map((h, i) => (
-              <div key={i} style={{ fontSize: 14, fontWeight: 600, color: '#3B0764' }}>
-                <strong>锦囊 {i + 1}：</strong> {h}
+              <div key={i} style={{ fontSize: 13.5, fontWeight: 600, color: '#F3E8FF' }}>
+                <strong>秘术 {i + 1}：</strong> {h}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* 底部心理安全提示 */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink-muted)' }}>
-        <ShieldCheck size={15} color="#10B981" />
-        <span>神探守护模式：答错不扣分，求助不扣星，弄懂就是胜利！</span>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-muted)' }}>
+        <ShieldCheck size={14} color="#34D399" />
+        <span>庇护所圣光守护：答错触发护盾格挡绝不阵亡，弄懂斩杀就是胜利！</span>
       </div>
 
       <ScratchpadDrawer open={scratchOpen} onClose={() => setScratchOpen(false)} />
