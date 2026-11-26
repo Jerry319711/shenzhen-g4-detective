@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Download, KeyRound, Lock, RotateCcw, Save, ShieldCheck, Upload } from 'lucide-react';
 import { LearnerProfile } from '../types';
 import { SKILL_META } from '../data/curriculum';
+import { EXAM_PAPERS } from '../data/exams';
 import { computeSkillMastery } from '../utils/storage';
 
 interface Props {
@@ -286,6 +287,45 @@ export const ParentDashboard: React.FC<Props> = ({
             • 试试说：“我看到你刚才用放大镜先找出了关键线索，遇到卡壳还自己用了提示一步步推出来，这个习惯比直接蒙对厉害多了！”
           </div>
         </div>
+      </div>
+
+      {/* 模拟考试成绩记录 */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900 }}>
+          📝 近期模拟考成绩记录（共完成 {(profile.examHistory || []).length} 次）
+        </h3>
+        {(profile.examHistory || []).length === 0 ? (
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--ink-muted)' }}>
+            孩子完成「神探模拟考场」中的任意 12~20 题模拟卷后，这里会自动展示每次分数、用时与薄弱考点变化！
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+            {(profile.examHistory || []).slice(0, 8).map((rec, i) => {
+              const paper = EXAM_PAPERS.find((p) => p.id === rec.examId);
+              return (
+                <div
+                  key={i}
+                  style={{
+                    background: '#F8FAFC',
+                    borderRadius: 14,
+                    padding: '10px 14px',
+                    border: '1.5px solid #E2E8F0',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800, fontSize: 14 }}>
+                    <span>{paper?.title || rec.examId}</span>
+                    <span style={{ color: rec.score >= 85 ? '#059669' : '#D97706', fontSize: 16 }}>
+                      {rec.score} 分
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
+                    答对 {rec.correctCount}/{rec.totalCount} 题 · 用时 {Math.max(1, Math.round(rec.durationSec / 60))} 分钟
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 个性化与 AI 配置 */}

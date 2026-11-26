@@ -1,10 +1,12 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, HelpCircle, Lightbulb, Search, Sparkles, Volume2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Flame, HelpCircle, Lightbulb, PenTool, Search, Sparkles, Volume2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { DetectiveCase, EquipmentItem } from '../types';
 import { DetectiveAvatar, AvatarMood } from './DetectiveAvatar';
 import { MathVisualizer } from './MathVisualizer';
 import { ConfettiBurst } from './ConfettiBurst';
+import { ScratchpadDrawer } from './ScratchpadDrawer';
 import { CELEBRATION_QUOTES, COURAGE_QUOTES } from '../data/rewards';
+import { KNOWLEDGE_CARDS } from '../data/rpgData';
 import { sound, speakEnglish } from '../utils/sound';
 
 interface Props {
@@ -18,7 +20,7 @@ interface Props {
     cluesFoundBeforeAnswer: boolean;
     durationSec: number;
     bonusStars: number;
-  }) => { earnedStars: number };
+  }) => { earnedStars: number; earnedXp?: number; newCombo?: number; unlockedCardId?: string };
   onNextCase?: () => void;
 }
 
@@ -45,6 +47,10 @@ export const CasePlayView: React.FC<Props> = ({
   const [cluesFoundBeforeFirstAnswer, setCluesFoundBeforeFirstAnswer] = useState<boolean | null>(null);
   const [caseFinished, setCaseFinished] = useState(false);
   const [earnedStars, setEarnedStars] = useState(0);
+  const [earnedXp, setEarnedXp] = useState(0);
+  const [comboCount, setComboCount] = useState(0);
+  const [unlockedCardId, setUnlockedCardId] = useState<string | undefined>(undefined);
+  const [scratchOpen, setScratchOpen] = useState(false);
   const [chosenAnswers, setChosenAnswers] = useState<string[]>([]);
 
   const isSpotBug = detectiveCase.mode === 'eng_spot_bug';
@@ -162,6 +168,9 @@ export const CasePlayView: React.FC<Props> = ({
         bonusStars,
       });
       setEarnedStars(res.earnedStars);
+      setEarnedXp(res.earnedXp || 20);
+      setComboCount(res.newCombo || 0);
+      setUnlockedCardId(res.unlockedCardId);
       setCaseFinished(true);
     }
   };
@@ -208,7 +217,7 @@ export const CasePlayView: React.FC<Props> = ({
               padding: '12px 24px',
               borderRadius: 18,
               border: '2px solid #FCD34D',
-              marginBottom: 20,
+              marginBottom: 16,
               flexWrap: 'wrap',
               justifyContent: 'center',
             }}
@@ -216,6 +225,12 @@ export const CasePlayView: React.FC<Props> = ({
             <div style={{ fontWeight: 900, fontSize: 20, color: '#D97706' }}>
               ⭐ +{earnedStars} 侦探星
             </div>
+            <span className="pill pill-purple">⚡ +{earnedXp} XP</span>
+            {comboCount >= 2 && (
+              <span className="pill pill-orange">
+                <Flame size={13} /> {comboCount} 连击！
+              </span>
+            )}
             {allTargetsFound && (
               <span className="pill pill-amber">🔍 放大镜全线索奖励 +5⭐</span>
             )}
@@ -225,6 +240,31 @@ export const CasePlayView: React.FC<Props> = ({
               <span className="pill pill-blue">💪 越挫越勇 · 成功排雷</span>
             )}
           </div>
+
+          {unlockedCardId && (() => {
+            const card = KNOWLEDGE_CARDS.find((c) => c.id === unlockedCardId);
+            if (!card) return null;
+            return (
+              <div
+                style={{
+                  maxWidth: 520,
+                  margin: '0 auto 16px',
+                  background: 'linear-gradient(135deg, #FEF3C7, #EDE9FE)',
+                  border: '2.5px solid #8B5CF6',
+                  borderRadius: 16,
+                  padding: '12px 16px',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 900, color: '#6D28D9' }}>
+                  🃏 点亮全新口诀卡牌 [{card.rarity}]！已存入图鉴
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 900, marginTop: 3 }}>
+                  {card.emoji} {card.title}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* 破案收获的神探口诀 */}
           <div
@@ -313,16 +353,26 @@ export const CasePlayView: React.FC<Props> = ({
               {detectiveCase.storyIntro}
             </p>
           </div>
-          {detectiveCase.readAloudText && (
-            <button
-              className="btn-soft"
-              style={{ flexShrink: 0 }}
-              onClick={() => speakEnglish(detectiveCase.readAloudText!)}
-              title="朗读英语句子"
-            >
-              <Volume2 size={18} /> 听读音
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            {detectiveCase.readAloudText && (
+              <button
+                className="btn-soft"
+                onClick={() => speakEnglish(detectiveCase.readAloudText!)}
+                title="朗读英语句子"
+              >
+                <Volume2 size={18} /> 听读音
+              </button>
+            )}
+            {detectiveCase.subject === 'math' && (
+              <button
+                className="btn-soft"
+                onClick={() => setScratchOpen(true)}
+                title="打开电子草稿纸列竖式画图"
+              >
+                <PenTool size={16} /> 打草稿
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 放大镜扫线索区 */}
@@ -558,6 +608,8 @@ export const CasePlayView: React.FC<Props> = ({
         <ShieldCheck size={15} color="#10B981" />
         <span>神探守护模式：答错不扣分，求助不扣星，弄懂就是胜利！</span>
       </div>
+
+      <ScratchpadDrawer open={scratchOpen} onClose={() => setScratchOpen(false)} />
     </div>
   );
 };

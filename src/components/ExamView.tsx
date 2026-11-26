@@ -1,10 +1,26 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Award, CheckCircle2, ClipboardCheck, HelpCircle, Play, Search, Sparkles, Volume2 } from 'lucide-react';
-import { DetectiveCase, EquipmentItem, ExamPaper, ExamRecord, LearnerProfile } from '../types';
+import {
+  ArrowLeft,
+  Award,
+  CheckCircle2,
+  ClipboardCheck,
+  Flag,
+  HelpCircle,
+  PenTool,
+  Play,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Volume2,
+} from 'lucide-react';
+import { DetectiveCase, EquipmentItem, ExamPaper, ExamRecord, LearnerProfile, SkillCategory } from '../types';
 import { EXAM_PAPERS } from '../data/exams';
+import { SKILL_META } from '../data/curriculum';
+import { generateVariantPaperCases } from '../data/proceduralGenerator';
 import { DetectiveAvatar } from './DetectiveAvatar';
 import { MathVisualizer } from './MathVisualizer';
 import { ConfettiBurst } from './ConfettiBurst';
+import { ScratchpadDrawer } from './ScratchpadDrawer';
 import { sound, speakEnglish } from '../utils/sound';
 
 interface Props {
@@ -16,16 +32,12 @@ interface Props {
     record: ExamRecord;
     missedCases: DetectiveCase[];
     earnedStars: number;
+    earnedTreats: number;
   }) => void;
   onPracticeCase: (c: DetectiveCase) => void;
 }
 
-interface AnswerSnapshot {
-  caseItem: DetectiveCase;
-  selectedOptionIndex: number;
-  isCorrect: boolean;
-  foundAnyClue: boolean;
-}
+type FilterMode = 'all' | 'english' | 'math' | 'mixed' | 'special';
 
 export const ExamView: React.FC<Props> = ({
   profile,
@@ -34,49 +46,68 @@ export const ExamView: React.FC<Props> = ({
   onFinishExam,
   onPracticeCase,
 }) => {
+  const [filter, setFilter] = useState<FilterMode>('all');
   const [activePaper, setActivePaper] = useState<ExamPaper | null>(null);
+  const [paperCases, setPaperCases] = useState<DetectiveCase[]>([]);
+  const [isVariantMode, setIsVariantMode] = useState(false);
+
   const [qIdx, setQIdx] = useState(0);
-  const [foundTokens, setFoundTokens] = useState<number[]>([]);
+  const [selections, setSelections] = useState<Record<number, number>>({});
+  const [flagged, setFlagged] = useState<Record<number, boolean>>({});
+  const [foundMap, setFoundMap] = useState<Record<number, number[]>>({});
   const [clueTip, setClueTip] = useState('');
-  const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
-  const [showHint, setShowHint] = useState(false);
-  const [answers, setAnswers] = useState<AnswerSnapshot[]>([]);
-  const [finishedRecord, setFinishedRecord] = useState<{
+  const [showHintMap, setShowHintMap] = useState<Record<number, boolean>>({});
+  const [scratchOpen, setScratchOpen] = useState(false);
+  const [submitWarning, setSubmitWarning] = useState('');
+
+  const [finishedData, setFinishedData] = useState<{
     record: ExamRecord;
     earnedStars: number;
-    snapshots: AnswerSnapshot[];
+    earnedTreats: number;
+    skillStats: { skill: SkillCategory; name: string; correct: number; total: number }[];
   } | null>(null);
+
   const startRef = useRef(Date.now());
 
-  const paperCases = useMemo(() => {
-    if (!activePaper) return [];
-    return activePaper.caseIds
-      .map((id) => allCases.find((c) => c.id === id))
-      .filter((c): c is DetectiveCase => Boolean(c));
-  }, [activePaper, allCases]);
+  const filteredPapers = useMemo(() => {
+    return EXAM_PAPERS.filter((p) => {
+      if (filter === 'all') return true;
+      if (filter === 'special') return p.category === 'special';
+      return p.subject === filter;
+    });
+  }, [filter]);
 
-  const startPaper = (paper: ExamPaper) => {
+  const getBestScore = (examId: string) => {
+    const list = (profile.examHistory || []).filter((r) => r.examId === examId);
+    if (list.length === 0) return null;
+    return Math.max(...list.map((r) => r.score));
+  };
+
+  const launchPaper = (paper: ExamPaper, useFreshVariants = false) => {
     sound.playStepSuccess();
+    const cases = useFreshVariants
+      ? generateVariantPaperCases(paper.targetSkills, paper.questionCount)
+      : paper.caseIds
+          .map((id) => allCases.find((c) => c.id === id))
+          .filter((c): c is DetectiveCase => Boolean(c));
+
     setActivePaper(paper);
+    setPaperCases(cases);
+    setIsVariantMode(useFreshVariants);
     setQIdx(0);
-    setFoundTokens([]);
+    setSelections({});
+    setFlagged({});
+    setFoundMap({});
     setClueTip('');
-    setSelectedOpt(null);
-    setShowHint(false);
-    setAnswers([]);
-    setFinishedRecord(null);
+    setShowHintMap({});
+    setSubmitWarning('');
+    setFinishedData(null);
     startRef.current = Date.now();
   };
 
-  // 获取每张试卷历史最高分
-  const getBestScore = (examId: string) => {
-    const records = (profile.examHistory || []).filter((r) => r.examId === examId);
-    if (records.length === 0) return null;
-    return Math.max(...records.map((r) => r.score));
-  };
-
-  // ================= 试卷列表大厅 =================
+  // ================= 16 套完整模拟试卷大厅 =================
   if (!activePaper) {
+    const completedPaperCount = new Set((profile.examHistory || []).map((h) => h.examId)).size;
     return (
       <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div
@@ -87,35 +118,55 @@ export const ExamView: React.FC<Props> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <DetectiveAvatar mood="happy" equippedGear={equippedGear} size={82} />
+            <DetectiveAvatar mood="happy" equippedGear={equippedGear} size={86} />
             <div style={{ flex: 1 }}>
-              <span className="pill pill-orange">📝 零压力 · 神探段位认证考场</span>
-              <h2 style={{ margin: '6px 0 4px', fontSize: 22, fontWeight: 900, color: '#78350F' }}>
-                深圳四年级模拟试卷中心（6 套精选卷）
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                <span className="pill pill-orange">📝 16 套深圳四年级完整试卷</span>
+                <span className="pill pill-green">每卷 12~20 题 · 支持无限换变式新卷</span>
+                <span className="pill pill-blue">已挑战 {completedPaperCount}/{EXAM_PAPERS.length} 套</span>
+              </div>
+              <h2 style={{ margin: '4px 0 4px', fontSize: 22, fontWeight: 900, color: '#78350F' }}>
+                神探模拟考场（期中 / 期末 / 专题 / 全能大联考）
               </h2>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#92400E' }}>
-                没有吓人的倒计时！考卷里依然可以用放大镜找线索、看数学图解，交卷就发「神探奖状」，错题还会自动收进抓错怪档案方便巩固！
+                带答题卡跳题、插旗标记待检查、内置电子草稿纸与考前防粗心复查提醒——真正培养四年级高分考试习惯！
               </p>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(295px, 1fr))', gap: 14 }}>
-          {EXAM_PAPERS.map((paper) => {
+        {/* 试卷分类筛选 */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(
+            [
+              { id: 'all', label: `全部试卷 (${EXAM_PAPERS.length})` },
+              { id: 'english', label: '🇬🇧 英语卷 (7)' },
+              { id: 'math', label: '🧮 数学卷 (7)' },
+              { id: 'mixed', label: '🏆 英数大联考 (2)' },
+              { id: 'special', label: '🎯 防粗心/重难点专题 (6)' },
+            ] as { id: FilterMode; label: string }[]
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              className="btn-soft"
+              style={{
+                background: filter === tab.id ? '#F59E0B' : '#FFFFFF',
+                color: filter === tab.id ? '#FFFFFF' : '#475569',
+                borderColor: filter === tab.id ? '#D97706' : '#E2E8F0',
+              }}
+              onClick={() => setFilter(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 试卷网格 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+          {filteredPapers.map((paper) => {
             const best = getBestScore(paper.id);
             const tagClass =
-              paper.subject === 'english'
-                ? 'pill-blue'
-                : paper.subject === 'math'
-                ? 'pill-green'
-                : 'pill-purple';
-            const tagLabel =
-              paper.subject === 'english'
-                ? '英语专项卷'
-                : paper.subject === 'math'
-                ? '数学专项卷'
-                : '英数综合卷';
-
+              paper.subject === 'english' ? 'pill-blue' : paper.subject === 'math' ? 'pill-green' : 'pill-purple';
             return (
               <div
                 key={paper.id}
@@ -126,18 +177,18 @@ export const ExamView: React.FC<Props> = ({
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   gap: 12,
-                  borderColor: best !== null && best >= 85 ? '#34D399' : 'var(--border-soft)',
+                  borderColor: best !== null && best >= 90 ? '#10B981' : 'var(--border-soft)',
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
                     <span className={`pill ${tagClass}`}>
-                      {paper.badgeEmoji} {tagLabel} · {paper.caseIds.length} 题
+                      {paper.badgeEmoji} {paper.gradeTerm} · {paper.questionCount} 题
                     </span>
                     {best !== null ? (
                       <span className="pill pill-green">最高 {best} 分</span>
                     ) : (
-                      <span className="pill pill-amber">⭐ 奖 +{paper.rewardStars}</span>
+                      <span className="pill pill-amber">⭐+{paper.rewardStars} · 🦴+{paper.rewardTreats}</span>
                     )}
                   </div>
                   <div style={{ fontSize: 17, fontWeight: 900, color: '#0F172A' }}>{paper.title}</div>
@@ -149,13 +200,23 @@ export const ExamView: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <button
-                  className="btn-primary"
-                  style={{ width: '100%', padding: '11px 14px', fontSize: 15 }}
-                  onClick={() => startPaper(paper)}
-                >
-                  <Play size={16} fill="currentColor" /> {best !== null ? '再刷一次冲满分' : '领取试卷开考！'}
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn-primary"
+                    style={{ flex: 1.4, padding: '10px 10px', fontSize: 14 }}
+                    onClick={() => launchPaper(paper, false)}
+                  >
+                    <Play size={15} fill="currentColor" /> {best !== null ? '刷精选原卷' : '领取开考'}
+                  </button>
+                  <button
+                    className="btn-soft"
+                    style={{ flex: 1, padding: '10px 8px', fontSize: 13 }}
+                    onClick={() => launchPaper(paper, true)}
+                    title="用相同知识点生成全新数字和句子的新试卷"
+                  >
+                    <RefreshCw size={14} /> 新变式卷
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -164,15 +225,15 @@ export const ExamView: React.FC<Props> = ({
     );
   }
 
-  // ================= 交卷后的「神探认证成绩单」 =================
-  if (finishedRecord) {
-    const { record, earnedStars, snapshots } = finishedRecord;
+  // ================= 交卷后的深度诊断成绩单 =================
+  if (finishedData) {
+    const { record, earnedStars, earnedTreats, skillStats } = finishedData;
     const medal =
       record.score >= 90
-        ? { badge: '🏆 金牌神探认证', color: '#B45309', msg: '太神啦！你的细心度和推理力已经达到深圳四年级学霸水准！' }
-        : record.score >= 70
-        ? { badge: '🥈 银牌神探认证', color: '#1D4ED8', msg: '非常棒！大部分陷阱都被你轻松识破，把下面几道小错题再看一眼就满级啦！' }
-        : { badge: '🌟 勇敢挑战之星', color: '#059669', msg: '敢于完成整套模拟卷就超了不起！我们发现了宝贵的提分线索，点下方一键去拆解它们吧！' };
+        ? { badge: '🏆 金牌神探认证', color: '#B45309', msg: '超强实力！你的细心度和逻辑推理已经稳稳达到深圳四年级学霸水准！' }
+        : record.score >= 75
+        ? { badge: '🥈 银牌神探认证', color: '#1D4ED8', msg: '表现很棒！已经攻克了绝大多数考点，下面几道提分题点一下精讲就满级啦！' }
+        : { badge: '🌟 勇敢挑战之星', color: '#059669', msg: '认真答完一整套大卷超级了不起！我们精准定位出了提分突破口，一道道吃掉它们吧！' };
 
     return (
       <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -182,12 +243,12 @@ export const ExamView: React.FC<Props> = ({
             <span className="stamp-closed">{medal.badge}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
-            <DetectiveAvatar mood="celebrating" equippedGear={equippedGear} size={116} />
+            <DetectiveAvatar mood="celebrating" equippedGear={equippedGear} size={114} />
           </div>
-          <h2 style={{ margin: '6px 0 4px', fontSize: 26, fontWeight: 900, color: medal.color }}>
-            {profile.nickname} 获得了 {record.score} 分！
+          <h2 style={{ margin: '6px 0 4px', fontSize: 27, fontWeight: 900, color: medal.color }}>
+            {profile.nickname} 考了 {record.score} 分！
           </h2>
-          <p style={{ margin: '0 auto 14px', maxWidth: 520, fontSize: 15, fontWeight: 700, color: '#78350F' }}>
+          <p style={{ margin: '0 auto 14px', maxWidth: 540, fontSize: 15, fontWeight: 700, color: '#78350F' }}>
             {medal.msg}
           </p>
 
@@ -207,7 +268,8 @@ export const ExamView: React.FC<Props> = ({
             <span style={{ fontWeight: 900, color: '#059669' }}>
               ✅ 答对 {record.correctCount} / {record.totalCount} 题
             </span>
-            <span style={{ fontWeight: 900, color: '#D97706' }}>⭐ 奖励 +{earnedStars} 侦探星</span>
+            <span style={{ fontWeight: 900, color: '#D97706' }}>⭐ +{earnedStars} 侦探星</span>
+            <span style={{ fontWeight: 900, color: '#EA580C' }}>🦴 +{earnedTreats} 智慧狗粮</span>
             <span style={{ fontWeight: 800, color: '#475569' }}>
               ⏱ 用时 {Math.max(1, Math.round(record.durationSec / 60))} 分钟
             </span>
@@ -215,31 +277,63 @@ export const ExamView: React.FC<Props> = ({
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn-soft" onClick={() => setActivePaper(null)}>
-              返回试卷列表
+              返回 16 套试卷大厅
             </button>
-            <button className="btn-primary" onClick={() => startPaper(activePaper)}>
-              再挑战一次本卷
+            <button className="btn-primary" onClick={() => launchPaper(activePaper, true)}>
+              <RefreshCw size={16} /> 换一套全新变式卷再战！
             </button>
           </div>
         </div>
 
-        {/* 逐题诊断解析 */}
+        {/* 按知识点分模块得分率报告 */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900 }}>📊 本卷知识点掌握透视</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+            {skillStats.map((st) => {
+              const pct = Math.round((st.correct / st.total) * 100);
+              return (
+                <div key={st.skill} style={{ background: '#F8FAFC', borderRadius: 14, padding: '10px 14px', border: '1.5px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 800, marginBottom: 5 }}>
+                    <span>{st.name}</span>
+                    <span style={{ color: pct >= 80 ? '#059669' : '#D97706' }}>
+                      {st.correct}/{st.total} ({pct}%)
+                    </span>
+                  </div>
+                  <div className="progress-track" style={{ height: 8 }}>
+                    <div
+                      className="progress-fill"
+                      style={{
+                        width: `${pct}%`,
+                        background: pct >= 80 ? '#10B981' : '#F59E0B',
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 逐题深度解析 */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ClipboardCheck size={20} color="#D97706" /> 逐题神探解析（错题已自动加入「抓错怪」档案）
+            <ClipboardCheck size={20} color="#D97706" /> 逐题神探解析（错题已自动收进「抓错怪」复仇档案）
           </h3>
-          {snapshots.map((snap, i) => {
-            const finalStep = snap.caseItem.steps[snap.caseItem.steps.length - 1];
-            const rightAns = finalStep.options[finalStep.correctIndex];
-            const chosenAns = finalStep.options[snap.selectedOptionIndex];
+          {paperCases.map((c, i) => {
+            const targetStep = c.steps[c.steps.length - 1];
+            const chosenIdx = selections[i];
+            const isCorrect = chosenIdx === targetStep.correctIndex;
+            const chosenText = chosenIdx !== undefined ? targetStep.options[chosenIdx] : '未作答';
+            const rightText = targetStep.options[targetStep.correctIndex];
+
             return (
               <div
-                key={snap.caseItem.id}
+                key={`${c.id}-${i}`}
                 style={{
-                  padding: '14px 16px',
+                  padding: '13px 16px',
                   borderRadius: 16,
-                  background: snap.isCorrect ? '#ECFDF5' : '#FFF7ED',
-                  border: `2px solid ${snap.isCorrect ? '#6EE7B7' : '#FDBA74'}`,
+                  background: isCorrect ? '#ECFDF5' : '#FFF7ED',
+                  border: `2px solid ${isCorrect ? '#6EE7B7' : '#FDBA74'}`,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 6,
@@ -247,31 +341,29 @@ export const ExamView: React.FC<Props> = ({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ fontWeight: 900, fontSize: 15 }}>
-                    第 {i + 1} 题 · {snap.caseItem.title}
+                    第 {i + 1} 题 · {c.title}
                   </div>
-                  <span className={`pill ${snap.isCorrect ? 'pill-green' : 'pill-orange'}`}>
-                    {snap.isCorrect ? '✓ 完美答对' : '💡 发现提分点'}
+                  <span className={`pill ${isCorrect ? 'pill-green' : 'pill-orange'}`}>
+                    {isCorrect ? '✓ 答对' : '💡 提分宝藏题'}
                   </span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
-                  你的选择：<strong>{chosenAns}</strong>
-                  {!snap.isCorrect && (
+                  你的选择：<strong>{chosenText}</strong>
+                  {!isCorrect && (
                     <>
-                      {' '}· 正确答案：<strong style={{ color: '#059669' }}>{rightAns}</strong>
+                      {' '}· 正确答案：<strong style={{ color: '#059669' }}>{rightText}</strong>
                     </>
                   )}
                 </div>
-                <div style={{ fontSize: 13, color: '#92400E', fontWeight: 600 }}>
-                  📜 {snap.caseItem.goldenRule}
-                </div>
-                {!snap.isCorrect && (
+                <div style={{ fontSize: 13, color: '#92400E', fontWeight: 600 }}>📜 {c.goldenRule}</div>
+                {!isCorrect && (
                   <div>
                     <button
                       className="btn-soft"
                       style={{ padding: '6px 12px', fontSize: 13, marginTop: 4 }}
-                      onClick={() => onPracticeCase(snap.caseItem)}
+                      onClick={() => onPracticeCase(c)}
                     >
-                      <Sparkles size={14} /> 进入分步动画精讲这道题 →
+                      <Sparkles size={14} /> 马上进入分步动画精讲这道题 →
                     </button>
                   </div>
                 )}
@@ -283,123 +375,190 @@ export const ExamView: React.FC<Props> = ({
     );
   }
 
-  // ================= 正在作答试卷界面 =================
+  // ================= 正在答题界面（带答题卡 + 标记复查 + 电子草稿纸） =================
   const currentCase = paperCases[qIdx];
   const targetStep = currentCase.steps[currentCase.steps.length - 1];
-  const isLastQuestion = qIdx === paperCases.length - 1;
+  const selectedOpt = selections[qIdx];
+  const currentFound = foundMap[qIdx] || [];
+  const answeredCount = Object.keys(selections).length;
+  const flaggedCount = Object.values(flagged).filter(Boolean).length;
 
-  const handleTokenClick = (idx: number) => {
-    const tok = currentCase.tokens[idx];
+  const handleTokenClick = (tokIdx: number) => {
+    const tok = currentCase.tokens[tokIdx];
     if (tok.isBlank) return;
     if (tok.isClue || tok.isBug) {
-      if (!foundTokens.includes(idx)) {
+      if (!currentFound.includes(tokIdx)) {
         sound.playClueFound();
-        setFoundTokens((prev) => [...prev, idx]);
+        setFoundMap((prev) => ({ ...prev, [qIdx]: [...(prev[qIdx] || []), tokIdx] }));
       }
       if (tok.clueTip) setClueTip(tok.clueTip);
     } else {
-      setClueTip(`“${tok.text}”是普通词，找找关键数字、人称或陷阱词哦！`);
+      setClueTip(`“${tok.text}”是普通词，找找数字、人称或陷阱词哦！`);
     }
   };
 
-  const handleConfirmNext = () => {
-    if (selectedOpt === null) return;
-    const isCorrect = selectedOpt === targetStep.correctIndex;
-    const snapshot: AnswerSnapshot = {
-      caseItem: currentCase,
-      selectedOptionIndex: selectedOpt,
-      isCorrect,
-      foundAnyClue: foundTokens.length > 0,
-    };
-    const nextAnswers = [...answers, snapshot];
-
-    if (!isLastQuestion) {
-      sound.playStepSuccess();
-      setAnswers(nextAnswers);
-      setQIdx((n) => n + 1);
-      setFoundTokens([]);
-      setClueTip('');
-      setSelectedOpt(null);
-      setShowHint(false);
-    } else {
-      // 交卷结算！
-      sound.playCaseSolved();
-      const correctCount = nextAnswers.filter((a) => a.isCorrect).length;
-      const totalCount = nextAnswers.length;
-      const score = Math.round((correctCount / totalCount) * 100);
-      const durationSec = Math.max(5, Math.round((Date.now() - startRef.current) / 1000));
-      const record: ExamRecord = {
-        examId: activePaper.id,
-        score,
-        correctCount,
-        totalCount,
-        durationSec,
-        completedAt: Date.now(),
-      };
-      const missedCases = nextAnswers.filter((a) => !a.isCorrect).map((a) => a.caseItem);
-      // 鼓励机制：哪怕没全对，只要认真交卷就能拿丰厚星星！
-      const earnedStars = Math.max(15, Math.round((activePaper.rewardStars * (score + 40)) / 140));
-      onFinishExam({ paper: activePaper, record, missedCases, earnedStars });
-      setFinishedRecord({ record, earnedStars, snapshots: nextAnswers });
+  const handleTrySubmit = (force = false) => {
+    const unanswered = paperCases.length - answeredCount;
+    if (!force && (unanswered > 0 || flaggedCount > 0)) {
+      setSubmitWarning(
+        `神探考前检查提醒：${unanswered > 0 ? `还有 ${unanswered} 题未选` : ''}${
+          unanswered > 0 && flaggedCount > 0 ? '，且' : ''
+        }${flaggedCount > 0 ? `有 ${flaggedCount} 题插了待检查小旗子` : ''}！点击下方题号可以快速复查，或者点“确认交卷”。`
+      );
+      return;
     }
+
+    sound.playCaseSolved();
+    let correctCount = 0;
+    const missedCases: DetectiveCase[] = [];
+    const skillMap = new Map<SkillCategory, { correct: number; total: number }>();
+
+    paperCases.forEach((c, idx) => {
+      const step = c.steps[c.steps.length - 1];
+      const ok = selections[idx] === step.correctIndex;
+      if (ok) correctCount += 1;
+      else missedCases.push(c);
+
+      const prev = skillMap.get(c.skill) || { correct: 0, total: 0 };
+      skillMap.set(c.skill, { correct: prev.correct + (ok ? 1 : 0), total: prev.total + 1 });
+    });
+
+    const totalCount = paperCases.length;
+    const score = Math.round((correctCount / totalCount) * 100);
+    const durationSec = Math.max(10, Math.round((Date.now() - startRef.current) / 1000));
+    const skillStats = Array.from(skillMap.entries()).map(([skill, val]) => ({
+      skill,
+      name: SKILL_META.find((s) => s.id === skill)?.shortName || skill,
+      ...val,
+    }));
+    const weakSkills = skillStats.filter((s) => s.correct / s.total < 0.7).map((s) => s.skill);
+
+    const record: ExamRecord = {
+      examId: activePaper.id,
+      score,
+      correctCount,
+      totalCount,
+      durationSec,
+      completedAt: Date.now(),
+      weakSkills,
+    };
+
+    const earnedStars = Math.max(20, Math.round((activePaper.rewardStars * (score + 40)) / 140));
+    const earnedTreats = activePaper.rewardTreats;
+    onFinishExam({ paper: activePaper, record, missedCases, earnedStars, earnedTreats });
+    setFinishedData({ record, earnedStars, earnedTreats, skillStats });
   };
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* 顶栏 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <button className="btn-soft" onClick={() => setActivePaper(null)}>
           <ArrowLeft size={16} /> 退出考场
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span className="pill pill-amber">
-            <Award size={14} /> {activePaper.title}
+            <Award size={14} /> {activePaper.title} {isVariantMode ? '（新变式版）' : ''}
           </span>
           <span className="pill pill-blue">
-            第 {qIdx + 1} / {paperCases.length} 题
+            已答 {answeredCount} / {paperCases.length}
           </span>
-        </div>
-      </div>
-
-      <div className="progress-track">
-        <div className="progress-fill" style={{ width: `${((qIdx + 1) / paperCases.length) * 100}%` }} />
-      </div>
-
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-          <div>
-            <span className={`pill ${currentCase.subject === 'english' ? 'pill-blue' : 'pill-green'}`} style={{ marginBottom: 6 }}>
-              {currentCase.textbookRef}
-            </span>
-            <h3 style={{ margin: '4px 0 0', fontSize: 20, fontWeight: 900 }}>
-              第 {qIdx + 1} 题：{currentCase.title}
-            </h3>
-            <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--ink-muted)' }}>
-              {currentCase.storyIntro}
-            </p>
-          </div>
-          {currentCase.readAloudText && (
-            <button className="btn-soft" onClick={() => speakEnglish(currentCase.readAloudText!)}>
-              <Volume2 size={17} /> 朗读
+          {currentCase.subject === 'math' && (
+            <button className="btn-soft" onClick={() => setScratchOpen(true)}>
+              <PenTool size={15} /> 打草稿
             </button>
           )}
         </div>
+      </div>
 
-        {/* 考卷中也保留放大镜圈关键词，养成考试先审题好习惯 */}
+      {/* 答题卡导航条 */}
+      <div className="card" style={{ padding: '12px 14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 12, fontWeight: 800, color: '#475569' }}>
+          <span>📋 答题卡（点击题号随时跳题/检查）</span>
+          <span>蓝色=已答 · 🚩=待复查</span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {paperCases.map((_, idx) => {
+            const isCurr = idx === qIdx;
+            const isAns = selections[idx] !== undefined;
+            const isFlag = flagged[idx];
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setQIdx(idx);
+                  setClueTip('');
+                  setSubmitWarning('');
+                }}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  fontWeight: 900,
+                  fontSize: 13,
+                  position: 'relative',
+                  border: isCurr ? '2.5px solid #D97706' : '1.5px solid #CBD5E1',
+                  background: isCurr ? '#FEF3C7' : isAns ? '#DBEAFE' : '#FFFFFF',
+                  color: isCurr ? '#92400E' : isAns ? '#1D4ED8' : '#64748B',
+                }}
+              >
+                {idx + 1}
+                {isFlag && (
+                  <span style={{ position: 'absolute', top: -6, right: -4, fontSize: 11 }}>🚩</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 题目主面板 */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+          <div>
+            <span className={`pill ${currentCase.subject === 'english' ? 'pill-blue' : 'pill-green'}`} style={{ marginBottom: 6 }}>
+              第 {qIdx + 1} 题 · {currentCase.textbookRef}
+            </span>
+            <h3 style={{ margin: '4px 0 0', fontSize: 20, fontWeight: 900 }}>{currentCase.title}</h3>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--ink-muted)' }}>{currentCase.storyIntro}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {currentCase.readAloudText && (
+              <button className="btn-soft" onClick={() => speakEnglish(currentCase.readAloudText!)}>
+                <Volume2 size={16} /> 朗读
+              </button>
+            )}
+            <button
+              className="btn-soft"
+              style={{
+                background: flagged[qIdx] ? '#FFEDD5' : '#FFFFFF',
+                borderColor: flagged[qIdx] ? '#FB923C' : '#E2E8F0',
+                color: flagged[qIdx] ? '#C2410C' : '#64748B',
+              }}
+              onClick={() => setFlagged((prev) => ({ ...prev, [qIdx]: !prev[qIdx] }))}
+            >
+              <Flag size={15} /> {flagged[qIdx] ? '已插旗复查' : '标记待检查'}
+            </button>
+          </div>
+        </div>
+
+        {/* 放大镜圈关键词 */}
         <div>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#B45309', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Search size={15} /> 审题习惯加分：点击题干里的关键词帮你防粗心！
+            <Search size={15} /> 防粗心习惯：点击题干关键词高亮标出！
           </div>
           <div className="clue-board">
             {currentCase.tokens.map((tok, i) => {
               if (tok.isBlank) {
-                const chosenText = selectedOpt !== null ? targetStep.options[selectedOpt] : '___';
+                const chosenText = selectedOpt !== undefined ? targetStep.options[selectedOpt] : '___';
                 return (
-                  <span key={i} className={`clue-token ${selectedOpt !== null ? 'blank-filled' : 'blank-slot'}`}>
+                  <span key={i} className={`clue-token ${selectedOpt !== undefined ? 'blank-filled' : 'blank-slot'}`}>
                     {chosenText}
                   </span>
                 );
               }
-              const found = foundTokens.includes(i);
+              const found = currentFound.includes(i);
               return (
                 <button
                   key={i}
@@ -434,7 +593,8 @@ export const ExamView: React.FC<Props> = ({
                 type="button"
                 onClick={() => {
                   sound.playClueFound();
-                  setSelectedOpt(idx);
+                  setSelections((prev) => ({ ...prev, [qIdx]: idx }));
+                  setSubmitWarning('');
                 }}
                 className="option-btn"
                 style={{
@@ -458,27 +618,82 @@ export const ExamView: React.FC<Props> = ({
           })}
         </div>
 
-        {showHint && (
+        {showHintMap[qIdx] && (
           <div style={{ background: '#F5F3FF', border: '2px solid #C4B5FD', borderRadius: 14, padding: '10px 14px', fontSize: 14, color: '#4C1D95', fontWeight: 600 }}>
             💡 阿探思路提示：{targetStep.hints[0]} {targetStep.hints[1]}
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 6, borderTop: '1.5px solid #F1E9D6' }}>
-          <button type="button" className="btn-soft" onClick={() => setShowHint(true)} disabled={showHint}>
-            <HelpCircle size={16} /> {showHint ? '已打开思路提示' : '需要思路提示？'}
-          </button>
-
-          <button
-            type="button"
-            className={isLastQuestion ? 'btn-mint' : 'btn-primary'}
-            disabled={selectedOpt === null}
-            onClick={handleConfirmNext}
+        {submitWarning && (
+          <div
+            className="fade-in"
+            style={{
+              background: '#FFF7ED',
+              border: '2px solid #FB923C',
+              borderRadius: 14,
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              flexWrap: 'wrap',
+              fontSize: 13,
+              fontWeight: 700,
+              color: '#9A3412',
+            }}
           >
-            <CheckCircle2 size={17} /> {isLastQuestion ? '🎉 提交试卷领奖状！' : '确认并进入下一题 →'}
-          </button>
+            <span>🕵️ {submitWarning}</span>
+            <button className="btn-mint" style={{ padding: '8px 14px', fontSize: 13 }} onClick={() => handleTrySubmit(true)}>
+              检查好了，确认交卷！
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 6, borderTop: '1.5px solid #F1E9D6' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="btn-soft"
+              disabled={qIdx === 0}
+              onClick={() => {
+                setQIdx((n) => n - 1);
+                setClueTip('');
+              }}
+            >
+              ← 上一题
+            </button>
+            <button
+              type="button"
+              className="btn-soft"
+              disabled={Boolean(showHintMap[qIdx])}
+              onClick={() => setShowHintMap((prev) => ({ ...prev, [qIdx]: true }))}
+            >
+              <HelpCircle size={15} /> 思路提示
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            {qIdx < paperCases.length - 1 ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setQIdx((n) => n + 1);
+                  setClueTip('');
+                }}
+              >
+                下一题 →
+              </button>
+            ) : (
+              <button type="button" className="btn-mint" onClick={() => handleTrySubmit(false)}>
+                <CheckCircle2 size={17} /> 交卷领神探奖状！
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      <ScratchpadDrawer open={scratchOpen} onClose={() => setScratchOpen(false)} />
     </div>
   );
 };

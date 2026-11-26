@@ -5,10 +5,10 @@ export type SkillCategory =
   | 'eng_be_have_there'   // be动词 / have-has / There be就近原则
   | 'eng_present_prog'    // 现在进行时 & 时间线索
   | 'eng_prep_plural'     // 介词 / 单复数 / some-any / can
-  | 'math_trap_reading'   // 审题防陷阱（往返、单位、还剩、买几送几）
-  | 'math_word_logic'     // 数量关系与线段图（路程、单价、和差倍、方案）
-  | 'math_calc_laws'      // 运算律与巧算（分配律、结合律）
-  | 'math_eq_geo_dec';    // 方程天平 / 线与角 / 三角形 / 小数对齐
+  | 'math_trap_reading'   // 审题防陷阱（往返、单位、还剩、植树、大数读零）
+  | 'math_word_logic'     // 数量关系与线段图（路程、单价、和差倍、租车、平均数）
+  | 'math_calc_laws'      // 运算律与巧算（分配律、结合律、商不变）
+  | 'math_eq_geo_dec';    // 方程天平 / 线与角 / 三角形 / 小数
 
 export type ErrorCause = 'careless' | 'concept';
 
@@ -20,18 +20,18 @@ export type CaseMode =
 export interface ClueToken {
   text: string;
   isClue?: boolean;
-  clueTip?: string;       // 点中线索词时阿探的即时小贴士
-  isBug?: boolean;        // 抓语法小偷模式中的错误词
-  isBlank?: boolean;      // 填空槽位
+  clueTip?: string;
+  isBug?: boolean;
+  isBlank?: boolean;
 }
 
 export interface CaseStep {
   prompt: string;
   options: string[];
   correctIndex: number;
-  optionFeedback: string[]; // 针对每个选项的温柔、具体解释（绝不出现打击性词汇）
-  hints: [string, string, string]; // 3级免费提示：1线索 -> 2直观比喻 -> 3手把手带算
-  visualStage?: number;    // 联动数学可视化组件的状态阶段
+  optionFeedback: string[];
+  hints: [string, string, string];
+  visualStage?: number;
 }
 
 export type MathVisualSpec =
@@ -84,19 +84,20 @@ export interface DetectiveCase {
   subject: Subject;
   skill: SkillCategory;
   mode: CaseMode;
-  difficulty: 1 | 2 | 3; // 1=热身小案, 2=进阶密案, 3=王牌悬案
-  textbookRef: string;   // 例如：沪教牛津深圳版 4A M2 / 北师大版 4下 第五单元
+  difficulty: 1 | 2 | 3;
+  textbookRef: string;
   title: string;
-  suspectName: string;   // 例如："三单偷帽子怪"、"往返迷雾狐"
-  storyIntro: string;    // 简短有趣的案件背景
-  readAloudText?: string;// 英语朗读文本
-  tokens: ClueToken[];   // 可点击的线索词/错词序列
-  clueGoalText: string;  // 例如："先用放大镜找出句子里的 2 个时间/人称线索！"
+  suspectName: string;
+  storyIntro: string;
+  readAloudText?: string;
+  tokens: ClueToken[];
+  clueGoalText: string;
   visual?: MathVisualSpec;
   steps: CaseStep[];
-  goldenRule: string;    // 破案后收获的「神探口诀」
+  goldenRule: string;
   rewardStars: number;
   isAiGenerated?: boolean;
+  cardId?: string; // 解锁对应口诀卡牌
 }
 
 export interface AttemptRecord {
@@ -119,7 +120,7 @@ export interface FugitiveEntry {
   subject: Subject;
   cause: ErrorCause;
   addedAt: number;
-  capturedCount: number; // 连续答对1次即可归案，保留历史荣誉
+  capturedCount: number;
   status: 'at_large' | 'captured';
 }
 
@@ -137,34 +138,89 @@ export interface ExamPaper {
   title: string;
   subtitle: string;
   subject: Subject | 'mixed';
+  category: 'midterm' | 'final' | 'special' | 'combo';
+  gradeTerm: '4上' | '4下' | '全学年';
   badgeEmoji: string;
   caseIds: string[];
+  targetSkills: SkillCategory[];
+  questionCount: number;
   rewardStars: number;
+  rewardTreats: number;
   encouragement: string;
 }
 
 export interface ExamRecord {
   examId: string;
-  score: number;       // 0-100
+  score: number;
   correctCount: number;
   totalCount: number;
   durationSec: number;
   completedAt: number;
+  weakSkills?: SkillCategory[];
+}
+
+export interface AdventureChapter {
+  id: string;
+  order: number;
+  name: string;
+  subtitle: string;
+  emoji: string;
+  subject: Subject | 'mixed';
+  skills: SkillCategory[];
+  themeColor: string;
+  bgGradient: string;
+  bossName: string;
+  bossEmoji: string;
+  bossTitle: string;
+  bossHp: number;
+  bossTaunt: string;
+  bossDefeatLine: string;
+  requiredCasesToUnlockBoss: number;
+  chestStars: number;
+  chestTreats: number;
+  unlockCardId: string;
+}
+
+export interface KnowledgeCard {
+  id: string;
+  title: string;
+  subject: Subject;
+  skill: SkillCategory;
+  rarity: 'R' | 'SR' | 'SSR';
+  emoji: string;
+  rule: string;
+  example: string;
+}
+
+export interface AchievementDef {
+  id: string;
+  title: string;
+  description: string;
+  emoji: string;
+  rewardStars: number;
 }
 
 export interface LearnerProfile {
   nickname: string;
   stars: number;
   totalStarsEarned: number;
+  xp: number;
+  treats: number;           // 智慧狗粮（用来喂养阿探提升亲密度）
+  bondPoints: number;       // 阿探亲密度
+  currentCombo: number;     // 当前连击
+  maxCombo: number;         // 历史最高连击
   streakDays: number;
-  lastActiveDate: string; // YYYY-MM-DD
-  dailyGoal: number;      // 默认每天3关（约5分钟）
+  lastActiveDate: string;
+  dailyGoal: number;
   todayCompletedIds: string[];
   solvedCaseIds: string[];
   attempts: AttemptRecord[];
   fugitives: FugitiveEntry[];
   unlockedGearIds: string[];
   equippedGear: Partial<Record<EquipmentItem['slot'], string>>;
+  defeatedBossIds: string[];
+  collectedCardIds: string[];
+  claimedAchievementIds: string[];
   soundEnabled: boolean;
   geminiApiKey: string;
   customCases: DetectiveCase[];

@@ -1,5 +1,6 @@
 import { DetectiveCase, SkillMeta } from '../types';
 import { EXTRA_CASES } from './curriculumExtra';
+import { BATCH2_CASES } from './curriculumBatch2';
 
 export const SKILL_META: SkillMeta[] = [
   {
@@ -1447,4 +1448,4 @@ export const BASE_CASES: DetectiveCase[] = [
   },
 ];
 
-export const BUILTIN_CASES: DetectiveCase[] = [...BASE_CASES, ...EXTRA_CASES];
+export const BUILTIN_CASES: DetectiveCase[] = [...BASE_CASES, ...EXTRA_CASES, ...BATCH2_CASES];

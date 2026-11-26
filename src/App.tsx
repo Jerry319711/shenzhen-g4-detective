@@ -4,6 +4,7 @@ import {
   BookOpen,
   Calculator,
   ClipboardCheck,
+  Compass,
   Flame,
   Home,
   Settings,
@@ -13,8 +14,9 @@ import {
   VolumeX,
   Wand2,
 } from 'lucide-react';
-import { DetectiveCase, EquipmentItem, ExamPaper, ExamRecord, LearnerProfile } from './types';
+import { AdventureChapter, DetectiveCase, EquipmentItem, ExamPaper, ExamRecord, LearnerProfile } from './types';
 import { BUILTIN_CASES } from './data/curriculum';
+import { ACHIEVEMENTS, getLevelFromXp } from './data/rpgData';
 import { createDefaultProfile, loadProfile, recordCaseCompletion, saveProfile } from './utils/storage';
 import { sound } from './utils/sound';
 import { HomeView } from './components/HomeView';
@@ -24,9 +26,10 @@ import { FugitiveView } from './components/FugitiveView';
 import { WardrobeView } from './components/WardrobeView';
 import { AiTutorView } from './components/AiTutorView';
 import { ExamView } from './components/ExamView';
+import { AdventureMapView } from './components/AdventureMapView';
 import { ParentDashboard } from './components/ParentDashboard';
 
-type Tab = 'home' | 'english' | 'math' | 'exams' | 'fugitive' | 'wardrobe' | 'tutor' | 'parent';
+type Tab = 'home' | 'map' | 'exams' | 'english' | 'math' | 'fugitive' | 'wardrobe' | 'tutor' | 'parent';
 
 export function App() {
   const [profile, setProfile] = useState<LearnerProfile>(() => loadProfile());
@@ -48,6 +51,13 @@ export function App() {
     [profile.fugitives]
   );
 
+  const claimableAchCount = useMemo(() => {
+    const claimed = new Set(profile.claimedAchievementIds || []);
+    return ACHIEVEMENTS.filter((a) => a.check(profile) && !claimed.has(a.id)).length;
+  }, [profile]);
+
+  const lvl = getLevelFromXp(profile.xp || 0);
+
   const handleToggleSound = () => {
     setProfile((prev) => ({ ...prev, soundEnabled: !prev.soundEnabled }));
   };
@@ -62,9 +72,14 @@ export function App() {
       bonusStars: number;
     }
   ) => {
-    const { updated, earnedStars } = recordCaseCompletion(profile, detectiveCase, stats);
-    setProfile(updated);
-    return { earnedStars };
+    const res = recordCaseCompletion(profile, detectiveCase, stats);
+    setProfile(res.updated);
+    return {
+      earnedStars: res.earnedStars,
+      earnedXp: res.earnedXp,
+      newCombo: res.newCombo,
+      unlockedCardId: res.unlockedCardId,
+    };
   };
 
   const handleNextCase = () => {
@@ -111,10 +126,54 @@ export function App() {
     });
   };
 
+  const handleFeedPet = () => {
+    setProfile((prev) => {
+      if ((prev.treats || 0) <= 0) return prev;
+      return {
+        ...prev,
+        treats: prev.treats - 1,
+        bondPoints: (prev.bondPoints || 0) + 15,
+        xp: (prev.xp || 0) + 20,
+      };
+    });
+  };
+
+  const handleClaimAchievement = (achId: string, rewardStars: number) => {
+    setProfile((prev) => {
+      if ((prev.claimedAchievementIds || []).includes(achId)) return prev;
+      return {
+        ...prev,
+        stars: prev.stars + rewardStars,
+        totalStarsEarned: prev.totalStarsEarned + rewardStars,
+        claimedAchievementIds: [...(prev.claimedAchievementIds || []), achId],
+      };
+    });
+  };
+
+  const handleDefeatBoss = (chap: AdventureChapter) => {
+    setProfile((prev) => {
+      const defeatedBossIds = (prev.defeatedBossIds || []).includes(chap.id)
+        ? prev.defeatedBossIds
+        : [...(prev.defeatedBossIds || []), chap.id];
+      const collectedCardIds = (prev.collectedCardIds || []).includes(chap.unlockCardId)
+        ? prev.collectedCardIds
+        : [...(prev.collectedCardIds || []), chap.unlockCardId];
+      return {
+        ...prev,
+        stars: prev.stars + chap.chestStars,
+        totalStarsEarned: prev.totalStarsEarned + chap.chestStars,
+        treats: (prev.treats || 0) + chap.chestTreats,
+        xp: (prev.xp || 0) + 100,
+        defeatedBossIds,
+        collectedCardIds,
+      };
+    });
+  };
+
   const handleAddCustomCase = (newCase: DetectiveCase) => {
     setProfile((prev) => ({
       ...prev,
-      customCases: [newCase, ...prev.customCases].slice(0, 20),
+      customCases: [newCase, ...prev.customCases].slice(0, 30),
     }));
   };
 
@@ -122,11 +181,13 @@ export function App() {
     record,
     missedCases,
     earnedStars,
+    earnedTreats,
   }: {
     paper: ExamPaper;
     record: ExamRecord;
     missedCases: DetectiveCase[];
     earnedStars: number;
+    earnedTreats: number;
   }) => {
     setProfile((prev) => {
       const nextFugitives = [...prev.fugitives];
@@ -152,8 +213,10 @@ export function App() {
         ...prev,
         stars: prev.stars + earnedStars,
         totalStarsEarned: prev.totalStarsEarned + earnedStars,
+        treats: (prev.treats || 0) + earnedTreats,
+        xp: (prev.xp || 0) + 80,
         fugitives: nextFugitives,
-        examHistory: [record, ...(prev.examHistory || [])].slice(0, 50),
+        examHistory: [record, ...(prev.examHistory || [])].slice(0, 60),
       };
     });
   };
@@ -177,14 +240,27 @@ export function App() {
         </button>
 
         <div className="top-stats">
+          <div className="stat-chip" style={{ background: '#EDE9FE', color: '#6D28D9', borderColor: '#C4B5FD' }}>
+            Lv.{lvl.level}
+          </div>
           <div className="stat-chip star" title="当前可用侦探星">
             <Star size={16} fill="#F59E0B" color="#D97706" />
             <span>{profile.stars}</span>
           </div>
-          <div className="stat-chip streak" title="连续探案天数">
+          <div className="stat-chip streak" title="连续探案天数 / 连击">
             <Flame size={16} fill="#FB923C" color="#EA580C" />
-            <span>{profile.streakDays} 天</span>
+            <span>{profile.currentCombo >= 2 ? `${profile.currentCombo}连击` : `${profile.streakDays}天`}</span>
           </div>
+          <button
+            className="icon-btn"
+            onClick={() => {
+              setActiveCase(null);
+              setActiveTab('tutor');
+            }}
+            title="问阿探（AI 苏格拉底讲题）"
+          >
+            <Wand2 size={18} />
+          </button>
           <button
             className="icon-btn"
             onClick={handleToggleSound}
@@ -224,6 +300,22 @@ export function App() {
             onStartCase={(c) => setActiveCase(c)}
             onNavigate={(t) => setActiveTab(t)}
           />
+        ) : activeTab === 'map' ? (
+          <AdventureMapView
+            profile={profile}
+            allCases={allCases}
+            equippedGear={profile.equippedGear}
+            onStartCase={(c) => setActiveCase(c)}
+            onDefeatBoss={handleDefeatBoss}
+          />
+        ) : activeTab === 'exams' ? (
+          <ExamView
+            profile={profile}
+            allCases={allCases}
+            equippedGear={profile.equippedGear}
+            onFinishExam={handleFinishExam}
+            onPracticeCase={(c) => setActiveCase(c)}
+          />
         ) : activeTab === 'english' ? (
           <CaseListView
             subject="english"
@@ -238,14 +330,6 @@ export function App() {
             solvedIds={profile.solvedCaseIds}
             onStartCase={(c) => setActiveCase(c)}
           />
-        ) : activeTab === 'exams' ? (
-          <ExamView
-            profile={profile}
-            allCases={allCases}
-            equippedGear={profile.equippedGear}
-            onFinishExam={handleFinishExam}
-            onPracticeCase={(c) => setActiveCase(c)}
-          />
         ) : activeTab === 'fugitive' ? (
           <FugitiveView
             fugitives={profile.fugitives}
@@ -257,6 +341,8 @@ export function App() {
             profile={profile}
             onUnlockGear={handleUnlockGear}
             onEquipGear={handleEquipGear}
+            onFeedPet={handleFeedPet}
+            onClaimAchievement={handleClaimAchievement}
           />
         ) : activeTab === 'tutor' ? (
           <AiTutorView
@@ -278,55 +364,35 @@ export function App() {
       {/* 底部平板/手机常驻导航 */}
       {!activeCase && activeTab !== 'parent' && (
         <nav className="bottom-nav" aria-label="主导航">
-          <button
-            className={`nav-item ${activeTab === 'home' ? 'active' : ''}`}
-            onClick={() => setActiveTab('home')}
-          >
-            <Home size={20} />
+          <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+            <Home size={19} />
             <span>事务所</span>
           </button>
-          <button
-            className={`nav-item ${activeTab === 'english' ? 'active' : ''}`}
-            onClick={() => setActiveTab('english')}
-          >
-            <BookOpen size={20} />
-            <span>英语馆</span>
+          <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
+            <Compass size={19} />
+            <span>冒险图</span>
           </button>
-          <button
-            className={`nav-item ${activeTab === 'math' ? 'active' : ''}`}
-            onClick={() => setActiveTab('math')}
-          >
-            <Calculator size={20} />
-            <span>数学馆</span>
-          </button>
-          <button
-            className={`nav-item ${activeTab === 'exams' ? 'active' : ''}`}
-            onClick={() => setActiveTab('exams')}
-          >
-            <ClipboardCheck size={20} />
+          <button className={`nav-item ${activeTab === 'exams' ? 'active' : ''}`} onClick={() => setActiveTab('exams')}>
+            <ClipboardCheck size={19} />
             <span>模拟卷</span>
           </button>
-          <button
-            className={`nav-item ${activeTab === 'fugitive' ? 'active' : ''}`}
-            onClick={() => setActiveTab('fugitive')}
-          >
-            <Target size={20} />
+          <button className={`nav-item ${activeTab === 'english' ? 'active' : ''}`} onClick={() => setActiveTab('english')}>
+            <BookOpen size={19} />
+            <span>英语馆</span>
+          </button>
+          <button className={`nav-item ${activeTab === 'math' ? 'active' : ''}`} onClick={() => setActiveTab('math')}>
+            <Calculator size={19} />
+            <span>数学馆</span>
+          </button>
+          <button className={`nav-item ${activeTab === 'fugitive' ? 'active' : ''}`} onClick={() => setActiveTab('fugitive')}>
+            <Target size={19} />
             <span>抓错怪</span>
             {atLargeCount > 0 && <span className="badge-dot">{atLargeCount}</span>}
           </button>
-          <button
-            className={`nav-item ${activeTab === 'wardrobe' ? 'active' : ''}`}
-            onClick={() => setActiveTab('wardrobe')}
-          >
-            <Award size={20} />
-            <span>装备库</span>
-          </button>
-          <button
-            className={`nav-item ${activeTab === 'tutor' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tutor')}
-          >
-            <Wand2 size={20} />
-            <span>问阿探</span>
+          <button className={`nav-item ${activeTab === 'wardrobe' ? 'active' : ''}`} onClick={() => setActiveTab('wardrobe')}>
+            <Award size={19} />
+            <span>基地</span>
+            {claimableAchCount > 0 && <span className="badge-dot">{claimableAchCount}</span>}
           </button>
         </nav>
       )}

@@ -1,4 +1,5 @@
 import { AttemptRecord, DetectiveCase, ErrorCause, LearnerProfile, SkillCategory, Subject } from '../types';
+import { KNOWLEDGE_CARDS } from '../data/rpgData';
 
 const STORAGE_KEY = 'detective_academy_g4_profile_v1';
 
@@ -13,8 +14,13 @@ export function getTodayStr(): string {
 export function createDefaultProfile(): LearnerProfile {
   return {
     nickname: 'Henry',
-    stars: 30, // 新手入职礼金，马上可以体验商店的快乐
-    totalStarsEarned: 30,
+    stars: 35,
+    totalStarsEarned: 35,
+    xp: 20,
+    treats: 3, // 新手赠送 3 块智慧狗粮，马上体验喂养阿探的乐趣！
+    bondPoints: 10,
+    currentCombo: 0,
+    maxCombo: 0,
     streakDays: 1,
     lastActiveDate: getTodayStr(),
     dailyGoal: 3,
@@ -24,6 +30,9 @@ export function createDefaultProfile(): LearnerProfile {
     fugitives: [],
     unlockedGearIds: ['gear_magnifier_basic'],
     equippedGear: { tool: 'gear_magnifier_basic' },
+    defeatedBossIds: [],
+    collectedCardIds: [],
+    claimedAchievementIds: [],
     soundEnabled: true,
     geminiApiKey: '',
     customCases: [],
@@ -41,11 +50,19 @@ export function loadProfile(): LearnerProfile {
       ...base,
       ...parsed,
       equippedGear: { ...base.equippedGear, ...(parsed.equippedGear || {}) },
+      defeatedBossIds: parsed.defeatedBossIds || [],
+      collectedCardIds: parsed.collectedCardIds || [],
+      claimedAchievementIds: parsed.claimedAchievementIds || [],
+      examHistory: parsed.examHistory || [],
+      xp: parsed.xp ?? base.xp,
+      treats: parsed.treats ?? base.treats,
+      bondPoints: parsed.bondPoints ?? base.bondPoints,
+      currentCombo: parsed.currentCombo ?? 0,
+      maxCombo: parsed.maxCombo ?? 0,
     };
 
     const today = getTodayStr();
     if (merged.lastActiveDate !== today) {
-      // 检查是否连续打卡
       const prev = new Date(merged.lastActiveDate);
       const curr = new Date(today);
       const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
@@ -77,10 +94,16 @@ export function recordCaseCompletion(
     durationSec: number;
     bonusStars: number;
   }
-): { updated: LearnerProfile; earnedStars: number; diagnosedCause?: ErrorCause } {
+): {
+  updated: LearnerProfile;
+  earnedStars: number;
+  earnedXp: number;
+  newCombo: number;
+  unlockedCardId?: string;
+  diagnosedCause?: ErrorCause;
+} {
   const firstTryPerfect = stats.wrongAttempts === 0;
 
-  // 智能错因诊断：区分“粗心漏看线索” vs “概念/逻辑理解薄弱”
   let diagnosedCause: ErrorCause | undefined;
   if (stats.wrongAttempts > 0) {
     if (!stats.cluesFoundBeforeAnswer && stats.hintsUsed === 0) {
@@ -92,8 +115,14 @@ export function recordCaseCompletion(
     }
   }
 
-  // 零惩罚激励原则：只要坚持破案成功，基础星星全拿！额外找到线索再送奖励星！
-  const earnedStars = detectiveCase.rewardStars + stats.bonusStars + (firstTryPerfect ? 5 : 3);
+  // 连击系统（一次破案连击+1；答错也不清零到负数，温和重置以便再次起跳）
+  const newCombo = firstTryPerfect ? (profile.currentCombo || 0) + 1 : 0;
+  const maxCombo = Math.max(profile.maxCombo || 0, newCombo);
+  const comboBonus = newCombo >= 3 ? Math.min(10, newCombo * 2) : 0;
+
+  const earnedStars = detectiveCase.rewardStars + stats.bonusStars + (firstTryPerfect ? 5 : 3) + comboBonus;
+  const earnedXp = (detectiveCase.difficulty * 15) + (firstTryPerfect ? 15 : 10);
+  const earnedTreats = firstTryPerfect && newCombo % 2 === 0 ? 1 : 0;
 
   const attempt: AttemptRecord = {
     caseId: detectiveCase.id,
@@ -116,7 +145,18 @@ export function recordCaseCompletion(
     ? profile.todayCompletedIds
     : [...profile.todayCompletedIds, detectiveCase.id];
 
-  // 更新“在逃档案”（错题追捕）
+  // 自动点亮对应口诀卡牌！
+  let unlockedCardId: string | undefined;
+  let collectedCardIds = [...(profile.collectedCardIds || [])];
+  const candidateCardId =
+    detectiveCase.cardId ||
+    KNOWLEDGE_CARDS.find((c) => c.skill === detectiveCase.skill && !collectedCardIds.includes(c.id))?.id;
+  if (candidateCardId && !collectedCardIds.includes(candidateCardId)) {
+    collectedCardIds.push(candidateCardId);
+    unlockedCardId = candidateCardId;
+  }
+
+  // 更新在逃档案
   let fugitives = [...profile.fugitives];
   const existingIdx = fugitives.findIndex((f) => f.caseId === detectiveCase.id);
 
@@ -141,7 +181,6 @@ export function recordCaseCompletion(
       });
     }
   } else if (existingIdx >= 0 && fugitives[existingIdx].status === 'at_large') {
-    // 复仇成功！抓捕归案！
     fugitives[existingIdx] = {
       ...fugitives[existingIdx],
       status: 'captured',
@@ -153,20 +192,25 @@ export function recordCaseCompletion(
     ...profile,
     stars: profile.stars + earnedStars,
     totalStarsEarned: profile.totalStarsEarned + earnedStars,
+    xp: (profile.xp || 0) + earnedXp,
+    treats: (profile.treats || 0) + earnedTreats,
+    currentCombo: newCombo,
+    maxCombo,
     solvedCaseIds,
     todayCompletedIds,
-    attempts: [attempt, ...profile.attempts].slice(0, 200),
+    collectedCardIds,
+    attempts: [attempt, ...profile.attempts].slice(0, 300),
     fugitives,
   };
 
-  return { updated, earnedStars, diagnosedCause };
+  return { updated, earnedStars, earnedXp, newCombo, unlockedCardId, diagnosedCause };
 }
 
 export interface SkillMasterySummary {
   skill: SkillCategory;
   subject: Subject;
   attempts: number;
-  masteryScore: number; // 0-100
+  masteryScore: number;
   carelessCount: number;
   conceptCount: number;
 }
@@ -179,18 +223,17 @@ export function computeSkillMastery(attempts: AttemptRecord[], skills: { id: Ski
         skill: id,
         subject,
         attempts: 0,
-        masteryScore: 50, // 未测试初始中性值
+        masteryScore: 50,
         carelessCount: 0,
         conceptCount: 0,
       };
     }
     const carelessCount = list.filter((a) => a.errorCause === 'careless').length;
     const conceptCount = list.filter((a) => a.errorCause === 'concept').length;
-    // 越近期的表现权重越高
     let weightedSum = 0;
     let totalWeight = 0;
-    list.slice(0, 10).forEach((a, idx) => {
-      const w = Math.max(1, 10 - idx);
+    list.slice(0, 12).forEach((a, idx) => {
+      const w = Math.max(1, 12 - idx);
       let score = 100;
       if (a.wrongAttempts === 1) score = 68;
       else if (a.wrongAttempts >= 2) score = 40;
