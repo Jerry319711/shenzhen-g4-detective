@@ -1,0 +1,18 @@
+{
+  "name": "神探星途 · 深圳四年级智慧探案学院",
+  "short_name": "神探星途",
+  "description": "专为深圳小学四年级打造的寓教于乐英语语法与数学逻辑探案学习应用",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#FFFBF2",
+  "theme_color": "#F59E0B",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
