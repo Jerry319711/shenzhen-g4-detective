@@ -67,12 +67,22 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
       <div className="hero-grid">
         <div className="card card-warm" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-            <DetectiveAvatar
-              mood={dailyDone >= profile.dailyGoal ? 'celebrating' : 'happy'}
-              skinId={profile.equippedSkinId}
-              equippedGear={profile.equippedGear}
-              size={104}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <DetectiveAvatar
+                mood={dailyDone >= profile.dailyGoal ? 'celebrating' : 'happy'}
+                skinId={profile.equippedSkinId}
+                equippedGear={profile.equippedGear}
+                size={112}
+              />
+              <button
+                type="button"
+                className="btn-soft"
+                style={{ padding: '4px 10px', fontSize: 12 }}
+                onClick={() => onNavigate('wardrobe')}
+              >
+                🎨 给阿探换皮肤
+              </button>
+            </div>
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
                 <span className="pill pill-purple">Lv.{lvl.level}</span>

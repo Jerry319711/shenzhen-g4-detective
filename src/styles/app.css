@@ -577,6 +577,55 @@ button:disabled {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* 阿探动态皮肤特效动画 */
+.avatar-float {
+  animation: avatarFloat 3.4s ease-in-out infinite;
+}
+
+@keyframes avatarFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.avatar-spin-slow {
+  animation: avatarSpin 16s linear infinite;
+}
+
+@keyframes avatarSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.avatar-pulse {
+  animation: avatarPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes avatarPulse {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+
+/* 全息皮肤展示大舞台 */
+.skin-stage {
+  background: radial-gradient(circle at 50% 35%, #312E81 0%, #1E1B4B 52%, #0F172A 100%);
+  border: 3px solid #38BDF8;
+  border-radius: 26px;
+  padding: 22px 24px;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.26);
+}
+
+.skin-pedestal {
+  width: 156px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.65) 0%, rgba(56, 189, 248, 0.08) 72%, transparent 100%);
+  border: 1.5px solid rgba(103, 232, 249, 0.55);
+  margin: -10px auto 0;
+}
+
 /* 标签 */
 .pill {
   display: inline-flex;

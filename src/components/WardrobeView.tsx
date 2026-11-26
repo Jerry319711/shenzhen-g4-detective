@@ -4,7 +4,7 @@ import { EquipmentItem, LearnerProfile, PropItemId, SkinDef, SkinId } from '../t
 import { EQUIPMENT_CATALOG, RANK_TIERS, getRankForStars } from '../data/rewards';
 import { ACHIEVEMENTS, KNOWLEDGE_CARDS, getBondLevel, getLevelFromXp } from '../data/rpgData';
 import { PROP_CATALOG, SKIN_CATALOG } from '../data/seasonData';
-import { DetectiveAvatar } from './DetectiveAvatar';
+import { DetectiveAvatar, AvatarMood } from './DetectiveAvatar';
 import { ConfettiBurst } from './ConfettiBurst';
 import { sound } from '../utils/sound';
 
@@ -47,6 +47,8 @@ export const WardrobeView: React.FC<Props> = ({
   onClaimAchievement,
 }) => {
   const [subTab, setSubTab] = useState<'skins' | 'props' | 'gear' | 'pet' | 'cards' | 'achievements'>('skins');
+  const [previewSkinId, setPreviewSkinId] = useState<SkinId>(profile.equippedSkinId);
+  const [stageMood, setStageMood] = useState<AvatarMood>('happy');
   const [toastMsg, setToastMsg] = useState('');
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -61,6 +63,10 @@ export const WardrobeView: React.FC<Props> = ({
   const claimableCount = ACHIEVEMENTS.filter((a) => a.check(profile) && !claimedSet.has(a.id)).length;
   const mysteryBoxCount = inv.item_mystery_box || 0;
 
+  const previewSkin = SKIN_CATALOG.find((s) => s.id === previewSkinId) || SKIN_CATALOG[0];
+  const isPreviewOwned = unlockedSkins.has(previewSkin.id);
+  const isPreviewEquipped = profile.equippedSkinId === previewSkin.id;
+
   const popToast = (msg: string, confetti = false) => {
     setToastMsg(msg);
     if (confetti) {
@@ -74,47 +80,118 @@ export const WardrobeView: React.FC<Props> = ({
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {showConfetti && <ConfettiBurst />}
 
-      {/* 阿探实时换装展示台 */}
+      {/* 阿探炫酷全息皮肤展示大舞台（支持任意皮肤一键放大试穿！） */}
       <div
-        className="card card-warm"
+        className="skin-stage"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 18,
+          gap: 20,
           flexWrap: 'wrap',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {/* 左侧：全息聚光灯阿探大形象 */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 185, margin: '0 auto' }}>
           <DetectiveAvatar
-            mood={toastMsg ? 'celebrating' : 'happy'}
-            skinId={profile.equippedSkinId}
+            mood={toastMsg ? 'celebrating' : stageMood}
+            skinId={previewSkinId}
             equippedGear={profile.equippedGear}
-            size={128}
+            size={168}
           />
-          <div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
-              <span className="pill pill-amber">Lv.{lvl.level} 神探</span>
-              <span className="pill pill-blue">{rank.current.badge} {rank.current.title}</span>
-              <span className="pill pill-orange">💛 亲密度 Lv.{bond.level} · {bond.title}</span>
-            </div>
-            <h2 style={{ margin: '4px 0', fontSize: 22, fontWeight: 900 }}>
-              {profile.nickname} 的皮肤商城 · 道具背包 · 图鉴基地
-            </h2>
-            <div style={{ fontSize: 13, color: '#78350F', fontWeight: 700 }}>
-              皮肤 {unlockedSkins.size}/{SKIN_CATALOG.length} · 装备 {profile.unlockedGearIds.length}/{EQUIPMENT_CATALOG.length} · 口诀卡 {collectedSet.size}/{KNOWLEDGE_CARDS.length}
-            </div>
+          <div className="skin-pedestal" />
+          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+            {(
+              [
+                { m: 'happy', label: '😊 微笑' },
+                { m: 'thinking', label: '💡 思考' },
+                { m: 'celebrating', label: '⭐ 必杀欢呼' },
+              ] as { m: AvatarMood; label: string }[]
+            ).map((btn) => (
+              <button
+                key={btn.m}
+                type="button"
+                onClick={() => setStageMood(btn.m)}
+                style={{
+                  padding: '4px 9px',
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  background: stageMood === btn.m ? '#38BDF8' : 'rgba(255,255,255,0.14)',
+                  color: stageMood === btn.m ? '#0F172A' : '#E2E8F0',
+                }}
+              >
+                {btn.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ background: '#FFFFFF', border: '2px solid #FBBF24', borderRadius: 16, padding: '10px 15px', textAlign: 'center' }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: '#92400E' }}>可用侦探星</div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: '#D97706' }}>⭐ {profile.stars}</div>
+        {/* 右侧：当前舞台试穿皮肤信息 + 快捷装备/购买 + 资产 */}
+        <div style={{ flex: 1, minWidth: 250, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <span className="pill" style={{ background: '#FACC15', color: '#713F12' }}>
+              Lv.{lvl.level} · {rank.current.badge} {rank.current.title}
+            </span>
+            <span className="pill" style={{ background: 'rgba(56,189,248,0.22)', color: '#E0F2FE', border: '1px solid #38BDF8' }}>
+              {isPreviewEquipped ? '✅ 当前穿戴中' : isPreviewOwned ? '👀 试穿预览（已拥有）' : '👀 炫酷试穿预览中'}
+            </span>
           </div>
-          <div style={{ background: '#FFFFFF', border: '2px solid #FB923C', borderRadius: 16, padding: '10px 15px', textAlign: 'center' }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: '#9A3412' }}>智慧狗粮</div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: '#EA580C' }}>🦴 {profile.treats || 0}</div>
+
+          <div>
+            <h2 style={{ margin: '2px 0', fontSize: 24, fontWeight: 900, color: '#FFFFFF' }}>
+              {previewSkin.emoji} {previewSkin.name}
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#CBD5E1', fontWeight: 600 }}>
+              {previewSkin.description}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            {isPreviewOwned ? (
+              <button
+                className={isPreviewEquipped ? 'btn-mint' : 'btn-primary'}
+                disabled={isPreviewEquipped}
+                onClick={() => {
+                  sound.playUnlock();
+                  onEquipSkin(previewSkin.id);
+                  popToast(`阿探正式换上了【${previewSkin.name}】！全场景同步生效！`, true);
+                }}
+              >
+                {isPreviewEquipped ? <><Check size={16} /> 已穿戴在阿探身上</> : <><Sparkles size={16} /> 立即换上这套皮肤！</>}
+              </button>
+            ) : previewSkin.passOnly ? (
+              <span className="pill" style={{ background: 'rgba(139,92,246,0.3)', color: '#EDE9FE', border: '1px solid #A78BFA', padding: '8px 14px', fontSize: 13 }}>
+                🏆 {previewSkin.passTierHint}
+              </span>
+            ) : (
+              <button
+                className="btn-primary"
+                disabled={profile.stars < previewSkin.cost}
+                onClick={() => {
+                  sound.playCaseSolved();
+                  onUnlockSkin(previewSkin);
+                  popToast(`恭喜解锁皮肤【${previewSkin.name}】并已穿戴！`, true);
+                }}
+              >
+                {profile.stars >= previewSkin.cost
+                  ? `⭐ ${previewSkin.cost} 立刻买下并换上！`
+                  : <><Lock size={15} /> 还差 {previewSkin.cost - profile.stars} ⭐ 解锁</>}
+              </button>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <span className="pill" style={{ background: 'rgba(251,191,36,0.2)', color: '#FEF08A', border: '1px solid #FBBF24', padding: '6px 12px', fontSize: 14 }}>
+                ⭐ {profile.stars}
+              </span>
+              <span className="pill" style={{ background: 'rgba(251,146,60,0.2)', color: '#FED7AA', border: '1px solid #FB923C', padding: '6px 12px', fontSize: 14 }}>
+                🦴 {profile.treats || 0}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: '#94A3B8', fontWeight: 600 }}>
+            💡 点击下方任意皮肤卡片都能在聚光灯大舞台上免费放大试穿，还可以去「穿戴装备」叠戴头盔、墨镜和光剑！
           </div>
         </div>
       </div>
@@ -165,12 +242,13 @@ export const WardrobeView: React.FC<Props> = ({
         ))}
       </div>
 
-      {/* Tab 1: 8 款全身限定皮肤 */}
+      {/* Tab 1: 8 款全身限定皮肤（点击任意卡片可直接在上方聚光灯舞台试穿！） */}
       {subTab === 'skins' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(235px, 1fr))', gap: 14 }}>
           {SKIN_CATALOG.map((skin) => {
             const owned = unlockedSkins.has(skin.id);
             const equipped = profile.equippedSkinId === skin.id;
+            const isSelectedOnStage = previewSkinId === skin.id;
             const st = RARITY_STYLES[skin.rarity];
             const canBuy = !skin.passOnly && profile.stars >= skin.cost;
 
@@ -178,10 +256,16 @@ export const WardrobeView: React.FC<Props> = ({
               <div
                 key={skin.id}
                 className="card"
+                onClick={() => {
+                  sound.playClueFound();
+                  setPreviewSkinId(skin.id);
+                }}
                 style={{
+                  cursor: 'pointer',
                   padding: 16,
                   background: equipped ? '#ECFDF5' : st.bg,
-                  borderColor: equipped ? '#10B981' : st.border,
+                  borderColor: isSelectedOnStage ? '#0284C7' : equipped ? '#10B981' : st.border,
+                  boxShadow: isSelectedOnStage ? '0 0 0 3px rgba(56, 189, 248, 0.45)' : undefined,
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
@@ -191,10 +275,26 @@ export const WardrobeView: React.FC<Props> = ({
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <span className={`pill ${st.badge}`}>{st.label}</span>
-                    {equipped && <span className="pill pill-green">穿戴中 ✓</span>}
+                    {equipped ? (
+                      <span className="pill pill-green">穿戴中 ✓</span>
+                    ) : isSelectedOnStage ? (
+                      <span className="pill pill-blue">👀 舞台试穿中</span>
+                    ) : null}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'center', margin: '6px 0' }}>
-                    <DetectiveAvatar mood="happy" skinId={skin.id} equippedGear={profile.equippedGear} size={96} />
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      padding: '8px 0',
+                      borderRadius: 16,
+                      background:
+                        skin.id === 'skin_mecha' || skin.id === 'skin_ninja' || skin.id === 'skin_astronaut' || skin.id === 'skin_wizard'
+                          ? 'linear-gradient(145deg, #1E1B4B, #0F172A)'
+                          : 'rgba(255,255,255,0.55)',
+                      margin: '4px 0 8px',
+                    }}
+                  >
+                    <DetectiveAvatar mood="happy" skinId={skin.id} equippedGear={profile.equippedGear} size={114} animated={false} />
                   </div>
                   <div style={{ fontWeight: 900, fontSize: 16, textAlign: 'center' }}>
                     {skin.emoji} {skin.name}
@@ -209,36 +309,38 @@ export const WardrobeView: React.FC<Props> = ({
                     className={equipped ? 'btn-mint' : 'btn-primary'}
                     style={{ width: '100%', padding: '9px 12px', fontSize: 14 }}
                     disabled={equipped}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       sound.playUnlock();
+                      setPreviewSkinId(skin.id);
                       onEquipSkin(skin.id);
-                      popToast(`阿探换上了超酷皮肤【${skin.name}】！`);
+                      popToast(`阿探换上了超酷皮肤【${skin.name}】！`, true);
                     }}
                   >
                     {equipped ? <><Check size={15} /> 正在穿戴</> : <><Sparkles size={15} /> 换上这套皮肤</>}
                   </button>
                 ) : skin.passOnly ? (
-                  <div
-                    style={{
-                      textAlign: 'center',
-                      padding: '8px 10px',
-                      borderRadius: 12,
-                      background: 'rgba(255,255,255,0.85)',
-                      border: '1.5px dashed #8B5CF6',
-                      fontSize: 12,
-                      fontWeight: 800,
-                      color: '#6D28D9',
+                  <button
+                    type="button"
+                    className="btn-soft"
+                    style={{ width: '100%', padding: '8px 10px', fontSize: 12, color: '#6D28D9', borderColor: '#C4B5FD' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      sound.playClueFound();
+                      setPreviewSkinId(skin.id);
                     }}
                   >
-                    🏆 {skin.passTierHint}
-                  </div>
+                    👀 试穿 · {skin.passTierHint}
+                  </button>
                 ) : (
                   <button
                     className="btn-primary"
                     style={{ width: '100%', padding: '9px 12px', fontSize: 14 }}
                     disabled={!canBuy}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       sound.playCaseSolved();
+                      setPreviewSkinId(skin.id);
                       onUnlockSkin(skin);
                       popToast(`恭喜解锁限定皮肤【${skin.name}】并已自动穿戴！`, true);
                     }}
