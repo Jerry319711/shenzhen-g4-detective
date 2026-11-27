@@ -241,7 +241,7 @@ export const EXAM_PAPERS: ExamPaper[] = [
   {
     id: 'exam-combo-20',
     title: '深圳四年级期末学霸终极认证大卷',
-    subtitle: '20 题终极压轴大卷（英语 10 题 + 数学 10 题），通关赢取海量星星与狗粮！',
+    subtitle: '20 题终极压轴大卷（英语 10 题 + 数学 10 题），通关赢取海量星星与圣光精粹！',
     subject: 'mixed',
     category: 'combo',
     gradeTerm: '全学年',

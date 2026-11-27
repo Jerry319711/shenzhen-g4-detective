@@ -81,7 +81,7 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
                 style={{ padding: '4px 10px', fontSize: 12 }}
                 onClick={() => onNavigate('wardrobe')}
               >
-                🎨 换皮肤 / 拆盲盒
+                🛡️ 换套装 / 拆盲盒
               </button>
             </div>
             <div style={{ flex: 1 }}>
@@ -176,7 +176,7 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
               <span className="pill pill-amber">Lv.{seasonInfo.currentTier} / 20</span>
             </div>
             <div style={{ fontSize: 13, color: '#BAE6FD', fontWeight: 600, marginTop: 3 }}>
-              20 级双轨狂送青铜/白银/黄金/神话盲盒与终极神话皮肤【🤖 星际机甲阿探】！
+              20 级双轨狂送青铜/白银/黄金/神话盲盒与终极神话全身套装【🌌 太古星穹圣帝套装】！
             </div>
           </div>
         </div>
@@ -305,7 +305,7 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
                 <Wand2 size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 17.5, fontWeight: 900, color: '#D8B4FE' }}>圣光祭坛 · 问阿探</div>
+                <div style={{ fontSize: 17.5, fontWeight: 900, color: '#D8B4FE' }}>圣光祭坛 · 圣骑士导师</div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#E9D5FF' }}>苏格拉底讲题 · 召唤弱项新怪</div>
               </div>
             </div>
@@ -314,7 +314,7 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
             </span>
           </div>
           <p style={{ margin: 0, fontSize: 13.5, color: '#D6C7B2', fontWeight: 600 }}>
-            作业卡壳直接问阿探，一步步拆解听懂，还能按最弱知识点召唤全新精英怪实战演练！
+            作业卡壳直接问圣骑士导师，一步步拆解听懂，还能按最弱知识点召唤全新精英怪实战演练！
           </p>
         </button>
       </div>
@@ -336,10 +336,10 @@ export const HomeView: React.FC<Props> = ({ profile, allCases, onStartCase, onNa
           </div>
           <div>
             <div style={{ fontWeight: 900, fontSize: 16, color: '#FDE68A' }}>
-              暗黑宝库：4 档盲盒（待拆 {totalBoxes} 个）· 🧩 {profile.skinShards || 0} 皮肤碎片 · 8 款酷炫皮肤
+              暗黑宝库：4 档盲盒（待拆 {totalBoxes} 个）· 🧩 {profile.skinShards || 0} 套装碎片 · 8 套圣骑士全身套装
             </div>
             <div style={{ fontSize: 13, color: 'var(--ink-muted)' }}>
-              攒星星或用盲盒爆出的万能碎片保底合成酷炫皮肤，还能给阿探叠戴 16 件传奇装备！
+              攒星星或用盲盒爆出的万能碎片保底合成传说全身套装，还能自由叠戴 16 件暗黑经典神装！
             </div>
           </div>
         </div>

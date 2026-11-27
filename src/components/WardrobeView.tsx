@@ -22,11 +22,11 @@ interface Props {
 }
 
 const SLOT_LABELS: Record<EquipmentItem['slot'], string> = {
-  hat: '头饰',
-  eyes: '眼镜',
-  tool: '武器/法器',
-  cape: '披风',
-  badge: '徽章',
+  hat: '传说头盔',
+  eyes: '眼甲/圣印',
+  tool: '主手神兵',
+  cape: '战披风',
+  badge: '副手圣盾',
 };
 
 const RARITY_STYLES = {
@@ -132,7 +132,7 @@ export const WardrobeView: React.FC<Props> = ({
         <div style={{ flex: 1, minWidth: 250, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <span className="pill pill-amber">Lv.{lvl.level} · {rank.current.badge} {rank.current.title}</span>
-            <span className="pill pill-purple">🧩 皮肤碎片：{shards} 枚</span>
+            <span className="pill pill-purple">🧩 套装碎片：{shards} 枚</span>
             <span className="pill pill-blue">
               {isPreviewEquipped ? '✅ 穿戴中' : isPreviewOwned ? '👀 试穿（已拥有）' : '👀 全息试穿中'}
             </span>
@@ -155,10 +155,10 @@ export const WardrobeView: React.FC<Props> = ({
                 onClick={() => {
                   sound.playUnlock();
                   onEquipSkin(previewSkin.id);
-                  popToast(`阿探正式换装【${previewSkin.name}】！全地牢同步生效！`, true);
+                  popToast(`圣骑士换上全身套装【${previewSkin.name}】！全地牢同步生效！`, true);
                 }}
               >
-                {isPreviewEquipped ? <><Check size={16} /> 已出战穿戴</> : <><Sparkles size={16} /> 换上这套皮肤出战！</>}
+                {isPreviewEquipped ? <><Check size={16} /> 已出战穿戴</> : <><Sparkles size={16} /> 换上这套全身套装出战！</>}
               </button>
             ) : previewSkin.passOnly ? (
               <span className="pill pill-purple" style={{ padding: '7px 12px', fontSize: 12.5 }}>
@@ -172,7 +172,7 @@ export const WardrobeView: React.FC<Props> = ({
                   onClick={() => {
                     sound.playCaseSolved();
                     onUnlockSkin(previewSkin);
-                    popToast(`解锁皮肤【${previewSkin.name}】并已穿戴！`, true);
+                    popToast(`解锁全身套装【${previewSkin.name}】并已穿戴！`, true);
                   }}
                 >
                   {profile.stars >= previewSkin.cost
@@ -196,7 +196,7 @@ export const WardrobeView: React.FC<Props> = ({
             )}
 
             <span className="pill pill-amber" style={{ fontSize: 13.5 }}>⭐ {profile.stars}</span>
-            <span className="pill pill-orange" style={{ fontSize: 13.5 }}>🦴 {profile.treats || 0}</span>
+            <span className="pill pill-purple" style={{ fontSize: 13.5 }}>🔮 {profile.treats || 0}</span>
           </div>
         </div>
       </div>
@@ -224,9 +224,9 @@ export const WardrobeView: React.FC<Props> = ({
         {(
           [
             { id: 'boxes', label: `🎁 4 档暗黑盲盒 & 道具 ${totalBoxes > 0 ? `(待拆${totalBoxes}!)` : ''}` },
-            { id: 'skins', label: `🎨 英雄皮肤 (${unlockedSkins.size}/${SKIN_CATALOG.length})` },
-            { id: 'gear', label: `⚔️ 传奇装备 (${profile.unlockedGearIds.length}/${EQUIPMENT_CATALOG.length})` },
-            { id: 'pet', label: '🦴 喂养阿探' },
+            { id: 'skins', label: `🛡️ 全身套装 (${unlockedSkins.size}/${SKIN_CATALOG.length})` },
+            { id: 'gear', label: `⚔️ 暗黑神装 (${profile.unlockedGearIds.length}/${EQUIPMENT_CATALOG.length})` },
+            { id: 'pet', label: '🔮 圣光灌注' },
             { id: 'cards', label: `🃏 符文图鉴 (${collectedSet.size}/${KNOWLEDGE_CARDS.length})` },
             { id: 'achievements', label: `🏆 成就 ${claimableCount > 0 ? `(可领${claimableCount}!)` : ''}` },
           ] as { id: typeof subTab; label: string }[]
@@ -438,10 +438,10 @@ export const WardrobeView: React.FC<Props> = ({
                       sound.playUnlock();
                       setPreviewSkinId(skin.id);
                       onEquipSkin(skin.id);
-                      popToast(`阿探换上皮肤【${skin.name}】出战！`, true);
+                      popToast(`圣骑士换上全身套装【${skin.name}】出战！`, true);
                     }}
                   >
-                    {equipped ? <><Check size={14} /> 正在穿戴</> : <><Sparkles size={14} /> 换上这套皮肤</>}
+                    {equipped ? <><Check size={14} /> 正在穿戴</> : <><Sparkles size={14} /> 换上这套套装</>}
                   </button>
                 ) : skin.passOnly ? (
                   <button
@@ -467,7 +467,7 @@ export const WardrobeView: React.FC<Props> = ({
                         sound.playCaseSolved();
                         setPreviewSkinId(skin.id);
                         onUnlockSkin(skin);
-                        popToast(`解锁皮肤【${skin.name}】！`, true);
+                        popToast(`解锁全身套装【${skin.name}】！`, true);
                       }}
                     >
                       {canBuy ? `⭐ ${skin.cost} 购买` : <><Lock size={13} /> 需 {skin.cost} ⭐</>}
@@ -585,30 +585,30 @@ export const WardrobeView: React.FC<Props> = ({
         </>
       )}
 
-      {/* Tab 4: 喂养阿探 */}
+      {/* Tab 4: 圣光精粹灌注 */}
       {subTab === 'pet' && (
         <div className="card" style={{ textAlign: 'center', padding: '26px 20px' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
             <DetectiveAvatar mood={toastMsg ? 'celebrating' : 'happy'} skinId={profile.equippedSkinId} equippedGear={profile.equippedGear} size={140} />
           </div>
           <h3 style={{ margin: '4px 0', fontSize: 21, fontWeight: 900, color: '#FDE68A' }}>
-            <Heart size={20} fill="#F43F5E" color="#E11D48" style={{ verticalAlign: 'middle', marginRight: 6 }} />
-            战宠默契 Lv.{bond.level} · {bond.title}
+            <Heart size={20} fill="#F59E0B" color="#FACC15" style={{ verticalAlign: 'middle', marginRight: 6 }} />
+            圣光祝福 Lv.{bond.level} · {bond.title}
           </h3>
           <p style={{ margin: '6px auto 14px', maxWidth: 460, fontSize: 14, color: 'var(--ink-muted)' }}>
-            开盲盒、打赢世界 BOSS 和完成试炼卷都能赢取「🦴 智慧狗粮」，喂给阿探提升默契和经验！
+            开盲盒、打赢世界 BOSS 和完成试炼卷都能赢取「🔮 圣光精粹」，灌注给圣骑士提升圣光境界与英雄经验！
           </p>
           <div style={{ maxWidth: 420, margin: '0 auto 16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#FDE68A', marginBottom: 4 }}>
-              <span>当前亲密度：{profile.bondPoints || 0}</span>
-              <span>目标：{bond.nextNeed}</span>
+              <span>当前圣光祝福值：{profile.bondPoints || 0}</span>
+              <span>下一阶：{bond.nextNeed}</span>
             </div>
             <div className="progress-track">
               <div
                 className="progress-fill"
                 style={{
                   width: `${Math.min(100, Math.round(((profile.bondPoints || 0) / bond.nextNeed) * 100))}%`,
-                  background: 'linear-gradient(90deg, #FB7185, #F43F5E)',
+                  background: 'linear-gradient(90deg, #F59E0B, #FDE047)',
                 }}
               />
             </div>
@@ -619,10 +619,10 @@ export const WardrobeView: React.FC<Props> = ({
             onClick={() => {
               sound.playUnlock();
               onFeedPet();
-              popToast('阿探开心地摇尾巴：“汪呜！战宠亲密度 +15、经验 +20 XP！” 💛');
+              popToast('圣光涌动！圣骑士高举神剑：“为了庇护所！圣光祝福 +15、经验 +20 XP！” ✨');
             }}
           >
-            🦴 喂一块智慧狗粮（剩余 {profile.treats || 0} 块）
+            🔮 灌注 1 颗圣光精粹（剩余 {profile.treats || 0} 颗）
           </button>
         </div>
       )}

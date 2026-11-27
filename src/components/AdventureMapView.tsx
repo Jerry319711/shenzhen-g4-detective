@@ -272,7 +272,7 @@ export const AdventureMapView: React.FC<Props> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <DetectiveAvatar mood={battleCombo > 0 ? 'celebrating' : 'curious'} skinId={profile.equippedSkinId} equippedGear={equippedGear} size={88} />
               <div>
-                <div style={{ fontWeight: 900, fontSize: 16, color: '#FDE68A' }}>{profile.nickname} & 阿探</div>
+                <div style={{ fontWeight: 900, fontSize: 16, color: '#FDE68A' }}>{profile.nickname} · 圣骑士</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: '#6EE7B7', marginTop: 4 }}>
                   <Shield size={14} /> 圣光护盾：无敌免伤
                 </div>

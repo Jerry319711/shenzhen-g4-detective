@@ -455,7 +455,7 @@ export const CasePlayView: React.FC<Props> = ({
             <DetectiveAvatar mood={avatarMood} skinId={skinId} equippedGear={equippedGear} size={86} />
             <div>
               <div style={{ fontWeight: 900, fontSize: 15, color: '#FDE68A' }}>
-                {nickname} · 圣光猎魔人
+                {nickname} · 人类圣骑士
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6EE7B7', fontWeight: 700, marginTop: 3 }}>
                 <Shield size={14} /> 圣光护盾：无敌守护（答错免伤）
@@ -758,7 +758,7 @@ export const CasePlayView: React.FC<Props> = ({
               </div>
               {courageBoost && (
                 <div style={{ marginTop: 5, fontSize: 13, fontWeight: 700, color: '#FDE047' }}>
-                  💛 阿探助威：{courageBoost}
+                  ✨ 圣光助威：{courageBoost}
                 </div>
               )}
             </div>

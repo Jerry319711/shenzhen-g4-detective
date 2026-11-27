@@ -76,7 +76,7 @@ export const SeasonPassView: React.FC<Props> = ({
             当前通行证等级：Lv.{info.currentTier} / 20
           </h2>
           <p style={{ margin: '4px 0 12px', fontSize: 13, color: '#CBD5E1', fontWeight: 600 }}>
-            破案、刷模拟卷、打 Boss、完成每日任务都能狂涨赛季奖杯点（SP）！20 级终极大奖送神话限定皮肤【🤖 星际机甲阿探】！
+            斩杀小怪、刷试炼卷、打世界 BOSS、完成每日悬赏都能狂涨赛季奖杯点（SP）！20 级终极大奖送太古神话全身套装【🌌 太古星穹圣帝套装】！
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#BAE6FD', marginBottom: 5 }}>
@@ -122,7 +122,7 @@ export const SeasonPassView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 20级终极神话皮肤预览 */}
+        {/* 20级终极神话套装预览 */}
         <div
           style={{
             background: 'rgba(255,255,255,0.1)',
@@ -133,16 +133,16 @@ export const SeasonPassView: React.FC<Props> = ({
           }}
         >
           <div style={{ fontSize: 11, fontWeight: 900, color: '#67E8F9', marginBottom: 4 }}>
-            ✨ 20 级终极神话皮肤预览
+            ✨ 20 级终极神话全身套装
           </div>
           <DetectiveAvatar
             mood="celebrating"
             skinId="skin_mecha"
-            equippedGear={{ hat: 'gear_hat_mecha', tool: 'gear_tool_lightsaber', badge: 'gear_badge_diamond' }}
-            size={112}
+            equippedGear={{ hat: 'gear_hat_mecha', tool: 'gear_tool_lightsaber', badge: 'gear_badge_diamond', cape: 'gear_cape_flame' }}
+            size={122}
           />
           <div style={{ fontSize: 13, fontWeight: 900, color: '#FDE047', marginTop: 4 }}>
-            🤖 星际机甲阿探
+            🌌 太古星穹圣帝套装
           </div>
         </div>
       </div>

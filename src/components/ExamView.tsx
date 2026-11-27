@@ -268,7 +268,7 @@ export const ExamView: React.FC<Props> = ({
               ✅ 答对 {record.correctCount} / {record.totalCount} 题
             </span>
             <span style={{ fontWeight: 900, color: '#D97706' }}>⭐ +{earnedStars} 侦探星</span>
-            <span style={{ fontWeight: 900, color: '#EA580C' }}>🦴 +{earnedTreats} 智慧狗粮</span>
+            <span style={{ fontWeight: 900, color: '#7C3AED' }}>🔮 +{earnedTreats} 圣光精粹</span>
             <span style={{ fontWeight: 800, color: '#475569' }}>
               ⏱ 用时 {Math.max(1, Math.round(record.durationSec / 60))} 分钟
             </span>
@@ -276,7 +276,7 @@ export const ExamView: React.FC<Props> = ({
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn-soft" onClick={() => setActivePaper(null)}>
-              返回 16 套试卷大厅
+              返回 {EXAM_PAPERS.length} 套试炼卷大厅
             </button>
             <button className="btn-primary" onClick={() => launchPaper(activePaper, true)}>
               <RefreshCw size={16} /> 换一套全新变式卷再战！
@@ -623,7 +623,7 @@ export const ExamView: React.FC<Props> = ({
 
         {showHintMap[qIdx] && (
           <div style={{ background: '#F5F3FF', border: '2px solid #C4B5FD', borderRadius: 14, padding: '10px 14px', fontSize: 14, color: '#4C1D95', fontWeight: 600 }}>
-            💡 阿探思路提示：{targetStep.hints[0]} {targetStep.hints[1]}
+            💡 圣骑士思路提示：{targetStep.hints[0]} {targetStep.hints[1]}
           </div>
         )}
 

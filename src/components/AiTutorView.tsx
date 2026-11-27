@@ -53,7 +53,7 @@ export const AiTutorView: React.FC<Props> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      text: `嗨 ${profile.nickname}！我是你的专属解惑搭档阿探 🐾\n写作业遇到看不懂的数学题或英语语法题，直接发给我！我绝不骂人，也不直接甩干巴巴的答案，咱们一起像拆乐高一样一步步把它弄懂！`,
+      text: `嗨 ${profile.nickname}！我是庇护所圣骑士团的智慧导师 ⚔️\n写作业遇到看不懂的数学题或英语语法题，直接发给我！我绝不批评，也不直接甩干巴巴的答案，咱们一起像拆解暗黑机关一样一步步把它彻底弄懂！`,
     },
   ]);
   const [input, setInput] = useState('');
@@ -111,7 +111,7 @@ export const AiTutorView: React.FC<Props> = ({
         setMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
       } else {
         // 调用 Gemini API (gemini-2.5-flash)
-        const systemPrompt = `你是“阿探”，一位温柔、幽默、极具耐心的柴犬小神探导师，专门辅导深圳小学四年级学生（名字叫 ${profile.nickname}，英语教材为沪教牛津深圳版，数学教材为北师大版）。
+        const systemPrompt = `你是庇护所圣骑士团的智慧导师，一位温柔、幽默、极具耐心的英雄导师，专门辅导深圳小学四年级学生（名字叫 ${profile.nickname}，英语教材为沪教牛津深圳版，数学教材为北师大版）。
 孩子的特点：容易粗心、数学逻辑较弱、有畏难心理、害怕失败。
 你的辅导原则（必须严格遵守）：
 1. 永远先表扬孩子的提问或思考，绝不出现“错了”“笨”“这么简单都不会”等打击性词语。
@@ -400,7 +400,7 @@ export const AiTutorView: React.FC<Props> = ({
               </span>
             </div>
             <h2 style={{ margin: '6px 0 2px', fontSize: 20, fontWeight: 900, color: '#E9D5FF' }}>
-              圣光祭坛 · 问阿探
+              圣光祭坛 · 圣骑士导师
             </h2>
             <div style={{ fontSize: 13, color: '#D8B4FE', fontWeight: 600 }}>
               当前重点突破目标：<strong>{weakestSkillMeta.name}</strong>
@@ -477,8 +477,8 @@ export const AiTutorView: React.FC<Props> = ({
             </div>
           ))}
           {loading && (
-            <div style={{ alignSelf: 'flex-start', color: '#92400E', fontSize: 13, fontWeight: 700 }}>
-              🐾 阿探正在举着放大镜帮你拆解思路...
+            <div style={{ alignSelf: 'flex-start', color: '#FDE68A', fontSize: 13, fontWeight: 700 }}>
+              ⚔️ 圣骑士导师正在施放圣光帮你拆解思路...
             </div>
           )}
         </div>
@@ -526,7 +526,7 @@ export const AiTutorView: React.FC<Props> = ({
             className="input-box"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="输入卡壳的数学题或英语语法疑问，阿探一步步带你懂..."
+            placeholder="输入卡壳的数学题或英语语法疑问，圣骑士导师一步步带你懂..."
           />
           <button type="submit" className="btn-primary" style={{ flexShrink: 0, padding: '12px 18px' }} disabled={loading}>
             <Send size={17} />

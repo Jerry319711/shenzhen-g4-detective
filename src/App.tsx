@@ -133,7 +133,7 @@ export function App() {
     } else if (roll < 0.48) {
       const shardGain = detectiveCase.difficulty === 3 ? 2 : 1;
       nextProf.skinShards = (nextProf.skinShards || 0) + shardGain;
-      droppedLootText = `怪物掉落【🧩 万能皮肤碎片 ×${shardGain}】！`;
+      droppedLootText = `怪物掉落【🧩 万能套装碎片 ×${shardGain}】！`;
     }
 
     setProfile(nextProf);
@@ -275,15 +275,15 @@ export function App() {
         if (roll < 0.15 && unownedGear.length > 0) {
           const g = unownedGear[Math.floor(Math.random() * unownedGear.length)];
           next.unlockedGearIds.push(g.id);
-          resultText = `🎉 欧皇小爆！直接开出装备【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 皮肤碎片！`;
+          resultText = `🎉 欧皇小爆！直接开出暗黑神装【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 套装碎片！`;
         } else if (roll < 0.55) {
           inv.item_scanner = (inv.item_scanner || 0) + 1;
           inv.item_fifty = (inv.item_fifty || 0) + 1;
-          resultText = `获得 🔦 破盾扫描×1 + ✂️ 破魔剪刀×1 + 🧩 ${shardGain} 皮肤碎片！`;
+          resultText = `获得 🔦 破盾扫描×1 + ✂️ 破魔剪刀×1 + 🧩 ${shardGain} 套装碎片！`;
         } else {
           next.treats = (next.treats || 0) + 2;
           next.seasonPoints = (next.seasonPoints || 0) + 25;
-          resultText = `获得 🦴 智慧狗粮×2 + 🏆 +25 赛季点 + 🧩 ${shardGain} 皮肤碎片！`;
+          resultText = `获得 🔮 圣光精粹×2 + 🏆 +25 赛季点 + 🧩 ${shardGain} 套装碎片！`;
         }
       } else if (boxId === 'box_silver') {
         const shardGain = 3 + Math.floor(Math.random() * 3); // 3~5
@@ -291,12 +291,12 @@ export function App() {
         if (roll < 0.35 && unownedGear.length > 0) {
           const g = unownedGear[Math.floor(Math.random() * unownedGear.length)];
           next.unlockedGearIds.push(g.id);
-          resultText = `⚔️ 银光出货！直接开出传奇装备【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 皮肤碎片！`;
+          resultText = `⚔️ 银光出货！直接开出暗黑神装【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 套装碎片！`;
         } else {
           inv.item_double_star = (inv.item_double_star || 0) + 1;
           inv.item_boss_bomb = (inv.item_boss_bomb || 0) + 1;
           next.seasonPoints = (next.seasonPoints || 0) + 45;
-          resultText = `获得 🧪 双倍药水×1 + 💣 BOSS暴击弹×1 + 🏆 +45 SP + 🧩 ${shardGain} 皮肤碎片！`;
+          resultText = `获得 🧪 双倍药水×1 + 💣 BOSS暴击弹×1 + 🏆 +45 SP + 🧩 ${shardGain} 套装碎片！`;
         }
       } else if (boxId === 'box_gold') {
         const shardGain = 6 + Math.floor(Math.random() * 5); // 6~10
@@ -305,17 +305,17 @@ export function App() {
           const sk = unownedShopSkins[Math.floor(Math.random() * unownedShopSkins.length)];
           next.unlockedSkinIds.push(sk.id);
           next.equippedSkinId = sk.id;
-          resultText = `🌟 暗金冲天光柱！！欧皇直出皮肤【${sk.emoji} ${sk.name}】并已穿戴 + 🧩 ${shardGain} 碎片！`;
+          resultText = `🌟 暗金冲天光柱！！欧皇直出全身套装【${sk.emoji} ${sk.name}】并已穿戴 + 🧩 ${shardGain} 碎片！`;
         } else if (roll < 0.55 && unownedGear.length > 0) {
           const g = unownedGear[Math.floor(Math.random() * unownedGear.length)];
           next.unlockedGearIds.push(g.id);
-          resultText = `🔥 金光闪耀！开出装备【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 皮肤碎片 + 🦴 3 狗粮！`;
+          resultText = `🔥 金光闪耀！开出暗黑神装【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 套装碎片 + 🔮 3 圣光精粹！`;
           next.treats = (next.treats || 0) + 3;
         } else {
           next.treats = (next.treats || 0) + 4;
           next.seasonPoints = (next.seasonPoints || 0) + 80;
           inv.item_boss_bomb = (inv.item_boss_bomb || 0) + 2;
-          resultText = `黄金补给大爆发！🧩 ${shardGain} 皮肤碎片 + 💣 暴击弹×2 + 🦴 4 狗粮 + 🏆 +80 SP！`;
+          resultText = `黄金补给大爆发！🧩 ${shardGain} 套装碎片 + 💣 暴击弹×2 + 🔮 4 圣光精粹 + 🏆 +80 SP！`;
         }
       } else {
         // 🌌 传说神话盲盒
@@ -325,18 +325,18 @@ export function App() {
           const sk = unownedShopSkins[Math.floor(Math.random() * unownedShopSkins.length)];
           next.unlockedSkinIds.push(sk.id);
           next.equippedSkinId = sk.id;
-          resultText = `🌌 太古紫光降临！！直出顶级皮肤【${sk.emoji} ${sk.name}】 + 🧩 ${shardGain} 皮肤碎片！`;
+          resultText = `🌌 太古紫光降临！！直出顶级全身套装【${sk.emoji} ${sk.name}】 + 🧩 ${shardGain} 套装碎片！`;
         } else if (unownedGear.length > 0) {
           const g = unownedGear[Math.floor(Math.random() * unownedGear.length)];
           next.unlockedGearIds.push(g.id);
           inv.item_double_star = (inv.item_double_star || 0) + 2;
           inv.item_boss_bomb = (inv.item_boss_bomb || 0) + 2;
-          resultText = `🌌 太古神装爆出！【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 皮肤碎片 + 双倍药水×2 + 暴击弹×2！`;
+          resultText = `🌌 太古神装爆出！【${g.emoji} ${g.name}】 + 🧩 ${shardGain} 套装碎片 + 双倍药水×2 + 暴击弹×2！`;
         } else {
           next.stars += 90;
           next.totalStarsEarned += 90;
           next.seasonPoints = (next.seasonPoints || 0) + 120;
-          resultText = `🌌 至尊神话豪礼！⭐ +90 星 + 🏆 +120 SP + 🧩 ${shardGain} 皮肤碎片！`;
+          resultText = `🌌 至尊神话豪礼！⭐ +90 星 + 🏆 +120 SP + 🧩 ${shardGain} 套装碎片！`;
         }
       }
 
@@ -566,7 +566,7 @@ export function App() {
               setActiveCase(null);
               setActiveTab('tutor');
             }}
-            title="圣光祭坛（问阿探）"
+            title="圣光祭坛（问导师）"
           >
             <Wand2 size={17} />
           </button>
@@ -714,7 +714,7 @@ export function App() {
           </button>
           <button className={`nav-item ${activeTab === 'wardrobe' ? 'active' : ''}`} onClick={() => setActiveTab('wardrobe')}>
             <Award size={19} />
-            <span>宝库皮肤</span>
+            <span>暗黑宝库</span>
             {(claimableAchCount > 0 || totalBoxes > 0) && (
               <span className="badge-dot">{claimableAchCount + totalBoxes}</span>
             )}

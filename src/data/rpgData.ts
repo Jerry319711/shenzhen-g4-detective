@@ -395,9 +395,9 @@ export const ACHIEVEMENTS: (AchievementDef & { check: (p: LearnerProfile) => boo
   },
   {
     id: 'ach-bond-5',
-    title: '阿探最佳拍档',
-    description: '喂养阿探让亲密度达到 Lv.3 以上',
-    emoji: '💛',
+    title: '圣光祝福大师',
+    description: '灌注圣光精粹让圣光祝福达到 Lv.3 以上',
+    emoji: '🔮',
     rewardStars: 30,
     check: (p) => (p.bondPoints || 0) >= 60,
   },
@@ -425,9 +425,9 @@ export function getLevelFromXp(xp: number): { level: number; currentXp: number; 
 
 export function getBondLevel(bondPoints: number): { level: number; title: string; nextNeed: number } {
   const pts = bondPoints || 0;
-  if (pts >= 150) return { level: 5, title: '灵魂神探双煞', nextNeed: 150 };
-  if (pts >= 100) return { level: 4, title: '无敌黄金搭档', nextNeed: 150 };
-  if (pts >= 60) return { level: 3, title: '默契好朋友', nextNeed: 100 };
-  if (pts >= 25) return { level: 2, title: '信任小跟班', nextNeed: 60 };
-  return { level: 1, title: '刚认识的伙伴', nextNeed: 25 };
+  if (pts >= 150) return { level: 5, title: '圣光大天使契约', nextNeed: 150 };
+  if (pts >= 100) return { level: 4, title: '阿克汉黄金圣辉', nextNeed: 150 };
+  if (pts >= 60) return { level: 3, title: '萨卡兰姆圣光护体', nextNeed: 100 };
+  if (pts >= 25) return { level: 2, title: '圣殿骑士共鸣', nextNeed: 60 };
+  return { level: 1, title: '初受圣光洗礼', nextNeed: 25 };
 }
